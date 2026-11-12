@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: onedesk_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: onedesk_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d onedesk_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: onedesk_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: onedesk_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PROJECT_NAME: "OneDesk"
+      ENVIRONMENT: "development"
+      DEBUG: "true"
+      SECRET_KEY: "change-this-in-production-at-least-32-chars-long"
+      ENCRYPTION_KEY: "p7X1vY3hTz9_mR8uX0wK2lO5jA6bC4eG7iH9kJ1lM3o="
+      DATABASE_URL: "postgresql+asyncpg://postgres:password@db:5432/onedesk_db"
+      DATABASE_URL_SYNC: "postgresql+psycopg2://postgres:password@db:5432/onedesk_db"
+      REDIS_URL: "redis://redis:6379/0"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+      ZOHO_CLIENT_ID: "${ZOHO_CLIENT_ID:-placeholder_client_id}"
+      ZOHO_CLIENT_SECRET: "${ZOHO_CLIENT_SECRET:-placeholder_client_secret}"
+      ZOHO_REDIRECT_URI: "${ZOHO_REDIRECT_URI:-http://localhost:8000/api/v1/integrations/zoho/callback}"
+      ZOHO_SCOPES: "ZohoCRM.modules.ALL,ZohoCRM.settings.ALL"
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: onedesk_celery_worker
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SECRET_KEY: "change-this-in-production-at-least-32-chars-long"
+      ENCRYPTION_KEY: "p7X1vY3hTz9_mR8uX0wK2lO5jA6bC4eG7iH9kJ1lM3o="
+      DATABASE_URL: "postgresql+asyncpg://postgres:password@db:5432/onedesk_db"
+      DATABASE_URL_SYNC: "postgresql+psycopg2://postgres:password@db:5432/onedesk_db"
+      REDIS_URL: "redis://redis:6379/0"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+      ZOHO_CLIENT_ID: "${ZOHO_CLIENT_ID:-placeholder_client_id}"
+      ZOHO_CLIENT_SECRET: "${ZOHO_CLIENT_SECRET:-placeholder_client_secret}"
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2
+
+volumes:
+  postgres_data:
+  redis_data:

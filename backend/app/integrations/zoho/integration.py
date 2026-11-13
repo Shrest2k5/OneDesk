@@ -33,7 +33,7 @@ class ZohoIntegration(BaseERPIntegration):
         return self.oauth_client.generate_authorization_url(
             user_id=user_id,
             connection_name=connection_name,
-            data_center=data_center or "us",
+            data_center=data_center,
         )
 
     async def handle_oauth_callback(

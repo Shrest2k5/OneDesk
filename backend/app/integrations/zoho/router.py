@@ -22,10 +22,10 @@ class ZohoConnectRequest(BaseModel):
         max_length=100,
         description="Friendly connection label",
     )
-    data_center: str = Field(
-        default="us",
+    data_center: Optional[str] = Field(
+        default=None,
         pattern="^(us|eu|in|cn|au|ca|jp)$",
-        description="Zoho data center: us, eu, in, cn, au, ca, jp",
+        description="Zoho data center: us, eu, in, cn, au, ca, jp. Defaults to configured accounts URL or 'in'",
     )
 
 

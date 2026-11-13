@@ -82,8 +82,8 @@ class ZohoTokenManager:
         lock = self._get_lock(str(integration.id))
 
         async with lock:
-            # Re-check expiration under the lock; another concurrent task might have already refreshed it
             if not self.is_token_expired(integration, safety_buffer_seconds=60) and integration.access_token:
+                logger.info(f"Token for integration {integration.id} is already valid.")
                 return integration.access_token
 
             refresh_token = integration.refresh_token
@@ -108,9 +108,12 @@ class ZohoTokenManager:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 try:
                     response = await client.post(token_endpoint, data=data)
+                except httpx.TimeoutException:
+                    logger.error(f"Timeout refreshing Zoho token for integration {integration.id}.")
+                    raise ZohoOAuthError("Network timeout refreshing Zoho access token.")
                 except httpx.RequestError as exc:
-                    logger.error(f"Network error refreshing Zoho token for integration {integration.id}: {exc}")
-                    raise ZohoOAuthError(f"Network communication failure during token refresh: {exc}")
+                    logger.error(f"Network error refreshing Zoho token for integration {integration.id}: {type(exc).__name__}")
+                    raise ZohoOAuthError("Network communication failure during token refresh.")
 
             try:
                 result = response.json()
@@ -138,10 +141,19 @@ class ZohoTokenManager:
             expires_in = result.get("expires_in", 3600)
             api_domain = result.get("api_domain")
 
+            # Update access token (encrypted on bind)
             integration.access_token = new_access_token
             integration.token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
             if api_domain:
                 integration.api_domain = api_domain
+
+            # Handle token rotation: update refresh token only if a new one is returned
+            new_refresh_token = result.get("refresh_token")
+            if new_refresh_token and str(new_refresh_token).strip():
+                logger.info(f"Preserving rotated refresh token for integration {integration.id}.")
+                integration.refresh_token = new_refresh_token
+            # Note: If no new refresh_token is returned, the existing integration.refresh_token is preserved untouched.
+
             integration.status = "active"
             integration.updated_at = datetime.now(timezone.utc)
 

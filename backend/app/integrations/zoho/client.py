@@ -4,6 +4,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import logger
+from app.core.security import sanitize_data
 from app.integrations.zoho.exceptions import (
     ZohoAPIError,
     ZohoRateLimitError,
@@ -131,12 +132,12 @@ class ZohoClient:
         # 4. Handle Error Responses
         if response.status_code >= 400:
             error_code = data.get("code") or "API_ERROR"
-            error_message = data.get("message") or response.text
+            error_message = data.get("message") or f"HTTP {response.status_code}"
             logger.error(f"Zoho API returned error {response.status_code} [{error_code}]: {error_message}")
             raise ZohoAPIError(
                 message=f"Zoho CRM API error ({error_code}): {error_message}",
                 status_code=response.status_code,
-                details=data,
+                details=sanitize_data(data),
             )
 
         return data

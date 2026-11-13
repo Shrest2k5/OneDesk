@@ -547,3 +547,4 @@ The platform is designed so future ERP providers require zero changes to the cor
    integration_registry.register(OdooIntegration())
    ```
 3. **Done**: The generic endpoints (`/api/v1/integrations`, `/sync`, and background Celery workers) will immediately recognize and execute workflows for `odoo` without any database schema migrations or core changes.
+

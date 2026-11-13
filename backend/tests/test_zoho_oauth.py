@@ -58,6 +58,17 @@ async def test_zoho_connect_success(client: AsyncClient):
     assert "https://accounts.zoho.eu/oauth/v2/auth" in eu_data["authorization_url"]
     assert eu_data["data_center"] == "eu"
 
+    # 4. Connect India (IN) datacenter
+    in_resp = await client.post(
+        "/api/v1/integrations/zoho/connect",
+        json={"connection_name": "India Production", "data_center": "in"},
+        headers=headers,
+    )
+    assert in_resp.status_code == 200
+    in_data = in_resp.json()
+    assert "https://accounts.zoho.in/oauth/v2/auth" in in_data["authorization_url"]
+    assert in_data["data_center"] == "in"
+
 
 def test_oauth_state_validation():
     """Test Zoho state token generation, validation, and tampering protection."""

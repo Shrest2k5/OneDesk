@@ -7,7 +7,8 @@ from app.core.logging import logger
 # Configure connection pool settings suitable for enterprise API usage
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.DEBUG and settings.ENVIRONMENT == "development",
+    echo=False,           # Never echo SQL — prevents token values appearing in logs
+    hide_parameters=True, # Suppress bound parameter values in error tracebacks
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,

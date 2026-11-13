@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+import threading
+from typing import Any, Dict, Optional, Set
 import urllib.parse
 import uuid
 import httpx
@@ -7,6 +8,7 @@ import jwt
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.security import sanitize_data
 from app.integrations.zoho.exceptions import ZohoOAuthError
 
 # Supported Zoho Data Centres and corresponding authentication & API base domains
@@ -19,6 +21,30 @@ ZOHO_DATA_CENTERS: Dict[str, Dict[str, str]] = {
     "ca": {"accounts": "https://accounts.zoho.ca", "api": "https://www.zohoapis.ca"},
     "jp": {"accounts": "https://accounts.zoho.jp", "api": "https://www.zohoapis.jp"},
 }
+
+
+# Thread-safe in-memory store for consumed state tokens (single-use replay protection)
+_consumed_state_nonces: Dict[str, datetime] = {}
+_state_lock = threading.Lock()
+
+
+def _is_nonce_consumed_and_record(nonce: str, exp_dt: datetime) -> bool:
+    """
+    Check if a state nonce has already been consumed, and if not, mark it as consumed.
+    Cleans up expired entries periodically.
+    """
+    now = datetime.now(timezone.utc)
+    with _state_lock:
+        # Periodic cleanup of expired nonces
+        expired_keys = [k for k, v in _consumed_state_nonces.items() if v < now]
+        for k in expired_keys:
+            del _consumed_state_nonces[k]
+
+        if nonce in _consumed_state_nonces:
+            return True
+
+        _consumed_state_nonces[nonce] = exp_dt
+        return False
 
 
 class ZohoOAuthClient:
@@ -39,10 +65,15 @@ class ZohoOAuthClient:
     @staticmethod
     def get_data_center_info(dc: Optional[str] = None) -> Dict[str, str]:
         """Resolve Zoho data center accounts and API base URLs."""
-        dc_key = (dc or "us").lower().strip()
+        if not dc and hasattr(settings, "ZOHO_DEFAULT_ACCOUNTS_URL") and settings.ZOHO_DEFAULT_ACCOUNTS_URL:
+            for dc_name, dc_info in ZOHO_DATA_CENTERS.items():
+                if dc_info["accounts"].rstrip("/") == settings.ZOHO_DEFAULT_ACCOUNTS_URL.rstrip("/"):
+                    dc = dc_name
+                    break
+        dc_key = (dc or "in").lower().strip()
         if dc_key not in ZOHO_DATA_CENTERS:
-            logger.warning(f"Unknown data center '{dc}', defaulting to 'us'.")
-            dc_key = "us"
+            logger.warning(f"Unknown data center '{dc}', defaulting to 'in'.")
+            dc_key = "in"
         return ZOHO_DATA_CENTERS[dc_key]
 
     def generate_state(
@@ -67,7 +98,10 @@ class ZohoOAuthClient:
         return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
     def validate_state(self, state: str) -> Dict[str, Any]:
-        """Validate and decode the OAuth state token received from callback."""
+        """
+        Validate and decode the OAuth state token received from callback.
+        Enforces cryptographic signature, expiration, and single-use replay protection.
+        """
         try:
             payload = jwt.decode(
                 state,
@@ -76,6 +110,23 @@ class ZohoOAuthClient:
             )
             if payload.get("type") != "zoho_oauth_state":
                 raise ZohoOAuthError("Invalid OAuth state token type.")
+
+            nonce = payload.get("nonce")
+            if not nonce:
+                raise ZohoOAuthError("OAuth state missing security nonce.")
+
+            exp_timestamp = payload.get("exp")
+            exp_dt = (
+                datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
+                if exp_timestamp
+                else datetime.now(timezone.utc) + timedelta(minutes=15)
+            )
+
+            # Replay protection: verify nonce has not been consumed yet
+            if _is_nonce_consumed_and_record(nonce, exp_dt):
+                logger.warning("Zoho OAuth state replay attempt detected.")
+                raise ZohoOAuthError("OAuth state has already been used (replay detected). Please re-initiate connection.")
+
             return payload
         except jwt.ExpiredSignatureError:
             logger.warning("Zoho OAuth state token expired.")
@@ -88,7 +139,7 @@ class ZohoOAuthClient:
         self,
         user_id: uuid.UUID,
         connection_name: str,
-        data_center: str = "us",
+        data_center: Optional[str] = None,
     ) -> Dict[str, str]:
         """
         Build the official Zoho OAuth 2.0 authorization URL.
@@ -96,7 +147,13 @@ class ZohoOAuthClient:
         """
         dc_info = self.get_data_center_info(data_center)
         accounts_url = dc_info["accounts"]
-        state = self.generate_state(user_id, connection_name, data_center)
+        resolved_dc = "in"
+        for k, v in ZOHO_DATA_CENTERS.items():
+            if v["accounts"] == accounts_url:
+                resolved_dc = k
+                break
+
+        state = self.generate_state(user_id, connection_name, resolved_dc)
 
         params = {
             "scope": self.scopes,
@@ -114,7 +171,7 @@ class ZohoOAuthClient:
             "authorization_url": auth_url,
             "state": state,
             "accounts_url": accounts_url,
-            "data_center": data_center,
+            "data_center": resolved_dc,
         }
 
     async def exchange_code(
@@ -124,8 +181,16 @@ class ZohoOAuthClient:
     ) -> Dict[str, Any]:
         """
         Exchange an OAuth authorization code for Zoho access and refresh tokens.
+        Validates accounts endpoint URL against allowed Zoho domains.
         """
-        token_endpoint = f"{accounts_url.rstrip('/')}/oauth/v2/token"
+        # Validate target accounts domain to prevent SSRF
+        valid_accounts_urls = {dc["accounts"].rstrip("/") for dc in ZOHO_DATA_CENTERS.values()}
+        cleaned_accounts_url = accounts_url.rstrip("/")
+        if cleaned_accounts_url not in valid_accounts_urls:
+            logger.error("Rejected token exchange request to unapproved domain.")
+            raise ZohoOAuthError("Invalid or unauthorized Zoho accounts domain.")
+
+        token_endpoint = f"{cleaned_accounts_url}/oauth/v2/token"
         data = {
             "grant_type": "authorization_code",
             "client_id": self.client_id,
@@ -137,16 +202,26 @@ class ZohoOAuthClient:
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 response = await client.post(token_endpoint, data=data)
+            except httpx.TimeoutException:
+                logger.error("Timeout during Zoho OAuth token exchange.")
+                raise ZohoOAuthError("Communication timeout with Zoho Accounts service.")
             except httpx.RequestError as exc:
-                logger.error(f"Network error during Zoho token exchange: {exc}")
-                raise ZohoOAuthError(f"Network communication failure with Zoho: {exc}")
+                logger.error(f"Network error during Zoho token exchange: {type(exc).__name__}")
+                raise ZohoOAuthError("Network communication failure with Zoho Accounts.")
 
-        result = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+        try:
+            result = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+        except Exception:
+            result = {}
 
         if response.status_code != 200 or "error" in result:
-            err_msg = result.get("error", f"HTTP {response.status_code} - {response.text}")
+            err_msg = result.get("error", f"HTTP {response.status_code}")
             logger.error(f"Zoho token exchange error: {err_msg}")
-            raise ZohoOAuthError(f"Zoho authorization failed: {err_msg}", status_code=response.status_code, details=result)
+            raise ZohoOAuthError(
+                f"Zoho authorization failed: {err_msg}",
+                status_code=response.status_code,
+                details=sanitize_data(result),
+            )
 
         access_token = result.get("access_token")
         refresh_token = result.get("refresh_token")

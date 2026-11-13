@@ -83,3 +83,4 @@ def sync_all_resources_task(
         res_summary = sync_resource_task.apply(args=[integration_id, res, incremental]).get()
         results.append(res_summary)
     return results
+

@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from app.api.routes import api_router
 from app.core.config import settings
 from app.core.logging import logger, setup_logging
+from app.core.security import sanitize_data, validate_encryption_key
 from app.integrations.zoho.exceptions import (
     ZohoAPIError,
     ZohoIntegrationError,
@@ -20,6 +21,15 @@ async def lifespan(app: FastAPI):
     """Application startup and shutdown lifespan handler."""
     setup_logging()
     logger.info(f"Starting {settings.PROJECT_NAME} in [{settings.ENVIRONMENT}] mode...")
+
+    # Fast startup validation: verify encryption key is configured and valid Fernet
+    try:
+        validate_encryption_key()
+        logger.info("Fernet token encryption key verified successfully.")
+    except Exception as exc:
+        logger.critical(f"FATAL: Encryption configuration failed: {exc}")
+        raise
+
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME}...")
 
@@ -59,7 +69,7 @@ def create_application() -> FastAPI:
             content={
                 "error": "token_expired_or_revoked",
                 "message": str(exc),
-                "details": exc.details,
+                "details": sanitize_data(exc.details),
             },
         )
 
@@ -72,7 +82,7 @@ def create_application() -> FastAPI:
             content={
                 "error": "rate_limit_exceeded",
                 "message": str(exc),
-                "details": exc.details,
+                "details": sanitize_data(exc.details),
             },
         )
 
@@ -84,7 +94,7 @@ def create_application() -> FastAPI:
             content={
                 "error": "oauth_authorization_error",
                 "message": str(exc),
-                "details": exc.details,
+                "details": sanitize_data(exc.details),
             },
         )
 
@@ -96,7 +106,7 @@ def create_application() -> FastAPI:
             content={
                 "error": "external_api_error",
                 "message": str(exc),
-                "details": exc.details,
+                "details": sanitize_data(exc.details),
             },
         )
 

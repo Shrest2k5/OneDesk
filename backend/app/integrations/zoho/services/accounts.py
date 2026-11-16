@@ -16,13 +16,18 @@ class ZohoAccountsService:
     @staticmethod
     def _normalize_account(item: Dict[str, Any]) -> ZohoAccount:
         """Map raw Zoho CRM account payload to normalized ZohoAccount schema."""
+        owner_info = item.get("Owner")
+        owner = owner_info.get("name") if isinstance(owner_info, dict) else owner_info
         return ZohoAccount(
             id=str(item.get("id")),
             account_name=item.get("Account_Name") or "Unnamed Account",
             phone=item.get("Phone"),
             website=item.get("Website"),
             industry=item.get("Industry"),
+            account_type=item.get("Account_Type"),
             billing_city=item.get("Billing_City"),
+            billing_country=item.get("Billing_Country"),
+            owner=owner,
             created_time=item.get("Created_Time"),
             modified_time=item.get("Modified_Time"),
             raw_data=item,

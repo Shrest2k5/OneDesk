@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BadgeDollarSign, Search, RefreshCw, Calendar, Building, DollarSign, Code, TrendingUp } from 'lucide-react'
 import { Card } from '@/components/common/Card'
@@ -15,7 +15,8 @@ import type { ZohoDeal } from '@/types/crm'
 import { QuickSyncModal } from '@/components/sync/QuickSyncModal'
 
 export const DealsPage: React.FC = () => {
-  const { activeIntegrationId, hasActiveConnection } = useIntegrations()
+  const { activeIntegrationId, activeIntegration, hasActiveConnection } = useIntegrations()
+  const isZohoSelected = activeIntegration?.provider === 'zoho' && activeIntegration.status === 'active'
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(25)
   const [searchQuery, setSearchQuery] = useState('')
@@ -37,9 +38,15 @@ export const DealsPage: React.FC = () => {
         page,
         per_page: perPage,
       }),
-    enabled: hasActiveConnection,
+    enabled: Boolean(activeIntegrationId) && hasActiveConnection && isZohoSelected,
     staleTime: 60000,
   })
+
+  useEffect(() => {
+    setPage(1)
+    setSearchQuery('')
+    setSelectedDeal(null)
+  }, [activeIntegrationId])
 
   const deals = response?.data || []
   const pagination = response?.pagination
@@ -114,12 +121,12 @@ export const DealsPage: React.FC = () => {
         </div>
 
         {/* Content Table / Skeletons / Empty */}
-        {!hasActiveConnection ? (
+        {!isZohoSelected ? (
           <div className="p-8">
             <EmptyState
               icon={BadgeDollarSign}
-              title="No Active ERP Connection"
-              description="Connect your Zoho CRM account in the Integrations section to view sales deals."
+              title="No Zoho CRM Connection Selected"
+              description="Select an active Zoho CRM integration or connect one in the Integrations section to view deals."
               actionLabel="Go to Integrations"
               onAction={() => (window.location.href = '/integrations')}
             />
@@ -157,9 +164,11 @@ export const DealsPage: React.FC = () => {
                 <tr>
                   <th className="py-3 px-4">Deal Name</th>
                   <th className="py-3 px-4">Amount</th>
+                  <th className="py-3 px-4">Currency</th>
                   <th className="py-3 px-4">Stage</th>
                   <th className="py-3 px-4">Expected Closing Date</th>
                   <th className="py-3 px-4">Account Name</th>
+                  <th className="py-3 px-4">Owner</th>
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
@@ -188,6 +197,7 @@ export const DealsPage: React.FC = () => {
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
+                    <td className="py-3.5 px-4 text-slate-600">{deal.currency || '—'}</td>
                     <td className="py-3.5 px-4">
                       {deal.stage ? (
                         <Badge variant="primary">{deal.stage}</Badge>
@@ -215,6 +225,7 @@ export const DealsPage: React.FC = () => {
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
+                    <td className="py-3.5 px-4 text-slate-600">{deal.owner || '—'}</td>
                     <td className="py-3.5 px-4 text-right">
                       <Button variant="ghost" size="sm" className="text-indigo-600 group-hover:text-indigo-700">
                         View
@@ -282,6 +293,10 @@ export const DealsPage: React.FC = () => {
                   <span className="text-emerald-700 font-bold">{formatCurrency(selectedDeal.amount)}</span>
                 </div>
                 <div className="py-3 px-4 flex justify-between">
+                  <span className="text-slate-500 font-medium">Currency</span>
+                  <span className="text-slate-900 font-medium">{selectedDeal.currency || '—'}</span>
+                </div>
+                <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Pipeline Stage</span>
                   {selectedDeal.stage ? <Badge variant="primary">{selectedDeal.stage}</Badge> : '—'}
                 </div>
@@ -292,6 +307,14 @@ export const DealsPage: React.FC = () => {
                 <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Account Name</span>
                   <span className="text-slate-900 font-medium">{selectedDeal.account_name || '—'}</span>
+                </div>
+                <div className="py-3 px-4 flex justify-between">
+                  <span className="text-slate-500 font-medium">Probability</span>
+                  <span className="text-slate-900 font-medium">{selectedDeal.probability ?? '—'}</span>
+                </div>
+                <div className="py-3 px-4 flex justify-between">
+                  <span className="text-slate-500 font-medium">Owner</span>
+                  <span className="text-slate-900 font-semibold">{selectedDeal.owner || '—'}</span>
                 </div>
                 <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Created Time</span>

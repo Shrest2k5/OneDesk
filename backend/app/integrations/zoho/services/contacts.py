@@ -23,13 +23,18 @@ class ZohoContactsService:
         elif isinstance(account_info, str):
             account_name = account_info
 
+        owner_info = item.get("Owner")
+        owner = owner_info.get("name") if isinstance(owner_info, dict) else owner_info
+
         return ZohoContact(
             id=str(item.get("id")),
             first_name=item.get("First_Name"),
-            last_name=item.get("Last_Name") or "Unknown",
+            last_name=item.get("Last_Name"),
             email=item.get("Email"),
-            phone=item.get("Phone") or item.get("Mobile"),
+            phone=item.get("Phone"),
+            mobile=item.get("Mobile"),
             account_name=account_name,
+            owner=owner,
             created_time=item.get("Created_Time"),
             modified_time=item.get("Modified_Time"),
             raw_data=item,

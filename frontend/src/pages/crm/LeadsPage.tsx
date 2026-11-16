@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Target, Search, RefreshCw, Mail, Phone, Building, Calendar, Code } from 'lucide-react'
 import { Card } from '@/components/common/Card'
@@ -15,7 +15,8 @@ import type { ZohoLead } from '@/types/crm'
 import { QuickSyncModal } from '@/components/sync/QuickSyncModal'
 
 export const LeadsPage: React.FC = () => {
-  const { activeIntegrationId, hasActiveConnection } = useIntegrations()
+  const { activeIntegrationId, activeIntegration, hasActiveConnection } = useIntegrations()
+  const isZohoSelected = activeIntegration?.provider === 'zoho' && activeIntegration.status === 'active'
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(25)
   const [searchQuery, setSearchQuery] = useState('')
@@ -37,9 +38,15 @@ export const LeadsPage: React.FC = () => {
         page,
         per_page: perPage,
       }),
-    enabled: hasActiveConnection,
+    enabled: Boolean(activeIntegrationId) && hasActiveConnection && isZohoSelected,
     staleTime: 60000,
   })
+
+  useEffect(() => {
+    setPage(1)
+    setSearchQuery('')
+    setSelectedLead(null)
+  }, [activeIntegrationId])
 
   const leads = response?.data || []
   const pagination = response?.pagination
@@ -47,7 +54,7 @@ export const LeadsPage: React.FC = () => {
   const filteredLeads = leads.filter((l) => {
     if (!searchQuery.trim()) return true
     const q = searchQuery.toLowerCase()
-    const fullName = `${l.first_name || ''} ${l.last_name}`.toLowerCase()
+    const fullName = `${l.first_name || ''} ${l.last_name || ''}`.toLowerCase()
     return (
       fullName.includes(q) ||
       (l.company && l.company.toLowerCase().includes(q)) ||
@@ -109,12 +116,12 @@ export const LeadsPage: React.FC = () => {
         </div>
 
         {/* Content Table / Skeletons / Empty */}
-        {!hasActiveConnection ? (
+        {!isZohoSelected ? (
           <div className="p-8">
             <EmptyState
               icon={Target}
-              title="No Active ERP Connection"
-              description="Connect your Zoho CRM account in the Integrations section to view leads."
+              title="No Zoho CRM Connection Selected"
+              description="Select an active Zoho CRM integration or connect one in the Integrations section to view leads."
               actionLabel="Go to Integrations"
               onAction={() => (window.location.href = '/integrations')}
             />
@@ -154,8 +161,10 @@ export const LeadsPage: React.FC = () => {
                   <th className="py-3 px-4">Company</th>
                   <th className="py-3 px-4">Email</th>
                   <th className="py-3 px-4">Phone</th>
+                  <th className="py-3 px-4">Lead Source</th>
                   <th className="py-3 px-4">Lead Status</th>
-                  <th className="py-3 px-4">Created Time</th>
+                  <th className="py-3 px-4">Owner</th>
+                  <th className="py-3 px-4">Created</th>
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
@@ -172,9 +181,9 @@ export const LeadsPage: React.FC = () => {
                     <td className="py-3.5 px-4 font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-full bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-[11px] shrink-0">
-                          {lead.first_name?.[0]?.toUpperCase() || lead.last_name[0]?.toUpperCase() || 'L'}
+                          {lead.first_name?.[0]?.toUpperCase() || lead.last_name?.[0]?.toUpperCase() || 'L'}
                         </div>
-                        <span>{lead.first_name ? `${lead.first_name} ${lead.last_name}` : lead.last_name}</span>
+                        <span>{lead.first_name ? `${lead.first_name} ${lead.last_name || ''}` : lead.last_name || '—'}</span>
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-slate-600">
@@ -207,6 +216,7 @@ export const LeadsPage: React.FC = () => {
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
+                    <td className="py-3.5 px-4 text-slate-600">{lead.lead_source || '—'}</td>
                     <td className="py-3.5 px-4">
                       {lead.lead_status ? (
                         <Badge variant="neutral">{lead.lead_status}</Badge>
@@ -214,6 +224,7 @@ export const LeadsPage: React.FC = () => {
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
+                    <td className="py-3.5 px-4 text-slate-600">{lead.owner || '—'}</td>
                     <td className="py-3.5 px-4 text-slate-400 text-[11px]">{formatDate(lead.created_time)}</td>
                     <td className="py-3.5 px-4 text-right">
                       <Button variant="ghost" size="sm" className="text-indigo-600 group-hover:text-indigo-700">
@@ -243,7 +254,7 @@ export const LeadsPage: React.FC = () => {
         <Drawer
           isOpen={!!selectedLead}
           onClose={() => setSelectedLead(null)}
-          title={`${selectedLead.first_name || ''} ${selectedLead.last_name}`.trim()}
+          title={`${selectedLead.first_name || ''} ${selectedLead.last_name || ''}`.trim() || 'Lead'}
           subtitle={`Lead ID: ${selectedLead.id}`}
         >
           <div className="flex border-b border-slate-200">
@@ -276,7 +287,7 @@ export const LeadsPage: React.FC = () => {
                 <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Full Name</span>
                   <span className="text-slate-900 font-semibold">
-                    {selectedLead.first_name ? `${selectedLead.first_name} ${selectedLead.last_name}` : selectedLead.last_name}
+                    {selectedLead.first_name ? `${selectedLead.first_name} ${selectedLead.last_name || ''}` : selectedLead.last_name || '—'}
                   </span>
                 </div>
                 <div className="py-3 px-4 flex justify-between">
@@ -292,12 +303,20 @@ export const LeadsPage: React.FC = () => {
                   )}
                 </div>
                 <div className="py-3 px-4 flex justify-between">
+                  <span className="text-slate-500 font-medium">Lead Source</span>
+                  <span className="text-slate-900 font-medium">{selectedLead.lead_source || '—'}</span>
+                </div>
+                <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Email</span>
                   <span className="text-slate-900 font-mono">{selectedLead.email || '—'}</span>
                 </div>
                 <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Phone</span>
                   <span className="text-slate-900 font-mono">{selectedLead.phone || '—'}</span>
+                </div>
+                <div className="py-3 px-4 flex justify-between">
+                  <span className="text-slate-500 font-medium">Owner</span>
+                  <span className="text-slate-900 font-semibold">{selectedLead.owner || '—'}</span>
                 </div>
                 <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Record Created</span>

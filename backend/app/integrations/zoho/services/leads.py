@@ -16,14 +16,18 @@ class ZohoLeadsService:
     @staticmethod
     def _normalize_lead(item: Dict[str, Any]) -> ZohoLead:
         """Map raw Zoho CRM lead payload to normalized ZohoLead schema."""
+        owner_info = item.get("Owner")
+        owner = owner_info.get("name") if isinstance(owner_info, dict) else owner_info
         return ZohoLead(
             id=str(item.get("id")),
             first_name=item.get("First_Name"),
-            last_name=item.get("Last_Name") or "Unknown",
+            last_name=item.get("Last_Name"),
             company=item.get("Company"),
             email=item.get("Email"),
-            phone=item.get("Phone") or item.get("Mobile"),
+            phone=item.get("Phone"),
+            lead_source=item.get("Lead_Source"),
             lead_status=item.get("Lead_Status"),
+            owner=owner,
             created_time=item.get("Created_Time"),
             modified_time=item.get("Modified_Time"),
             raw_data=item,

@@ -12,7 +12,7 @@ export const crmApi = {
   // Contacts
   listContacts: async (params?: CrmQueryParams): Promise<PaginatedResponse<ZohoContact>> => {
     const response = await apiClient.get<PaginatedResponse<ZohoContact>>('/zoho/contacts', {
-      params,
+      params: { ...params, fields: params?.fields || 'id,First_Name,Last_Name,Email,Phone,Mobile,Account_Name,Owner,Created_Time,Modified_Time' },
     })
     return response.data
   },
@@ -27,7 +27,7 @@ export const crmApi = {
   // Leads
   listLeads: async (params?: CrmQueryParams): Promise<PaginatedResponse<ZohoLead>> => {
     const response = await apiClient.get<PaginatedResponse<ZohoLead>>('/zoho/leads', {
-      params,
+      params: { ...params, fields: params?.fields || 'id,First_Name,Last_Name,Company,Email,Phone,Lead_Source,Lead_Status,Owner,Created_Time,Modified_Time' },
     })
     return response.data
   },
@@ -42,7 +42,7 @@ export const crmApi = {
   // Deals
   listDeals: async (params?: CrmQueryParams): Promise<PaginatedResponse<ZohoDeal>> => {
     const response = await apiClient.get<PaginatedResponse<ZohoDeal>>('/zoho/deals', {
-      params,
+      params: { ...params, fields: params?.fields || 'id,Deal_Name,Amount,Currency,Stage,Closing_Date,Probability,Account_Name,Owner,Created_Time,Modified_Time' },
     })
     return response.data
   },
@@ -57,7 +57,7 @@ export const crmApi = {
   // Accounts
   listAccounts: async (params?: CrmQueryParams): Promise<PaginatedResponse<ZohoAccount>> => {
     const response = await apiClient.get<PaginatedResponse<ZohoAccount>>('/zoho/accounts', {
-      params,
+      params: { ...params, fields: params?.fields || 'id,Account_Name,Phone,Website,Industry,Account_Type,Billing_City,Billing_Country,Owner,Created_Time,Modified_Time' },
     })
     return response.data
   },

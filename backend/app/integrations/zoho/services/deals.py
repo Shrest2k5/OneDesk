@@ -23,6 +23,9 @@ class ZohoDealsService:
         elif isinstance(account_info, str):
             account_name = account_info
 
+        owner_info = item.get("Owner")
+        owner = owner_info.get("name") if isinstance(owner_info, dict) else owner_info
+
         amount = item.get("Amount")
         parsed_amount = None
         if amount is not None:
@@ -35,9 +38,12 @@ class ZohoDealsService:
             id=str(item.get("id")),
             deal_name=item.get("Deal_Name") or "Unnamed Deal",
             amount=parsed_amount,
+            currency=item.get("Currency") or item.get("$currency_symbol"),
             stage=item.get("Stage"),
             closing_date=item.get("Closing_Date"),
+            probability=item.get("Probability"),
             account_name=account_name,
+            owner=owner,
             created_time=item.get("Created_Time"),
             modified_time=item.get("Modified_Time"),
             raw_data=item,

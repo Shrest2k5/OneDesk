@@ -135,7 +135,9 @@ async def test_crm_contacts_endpoints(
                 "Last_Name": "Doe",
                 "Email": "jane@acme.com",
                 "Phone": "+1234567890",
+                "Mobile": "+1987654321",
                 "Account_Name": {"name": "Acme Inc", "id": "acc99"},
+                "Owner": {"name": "Jane Owner", "id": "owner1"},
             }
         ],
         "info": {"page": 1, "per_page": 200, "count": 1, "more_records": False},
@@ -161,6 +163,8 @@ async def test_crm_contacts_endpoints(
         assert contact["last_name"] == "Doe"
         assert contact["email"] == "jane@acme.com"
         assert contact["account_name"] == "Acme Inc"
+        assert contact["mobile"] == "+1987654321"
+        assert contact["owner"] == "Jane Owner"
         assert data["pagination"]["count"] == 1
 
         # Single contact
@@ -186,27 +190,60 @@ async def test_crm_leads_deals_accounts_endpoints(
     ) as mock_exec:
         # Leads
         mock_exec.return_value = {
-            "data": [{"id": "l201", "Last_Name": "Prospect", "Company": "Tech Co", "Email": "lead@tech.co"}],
+            "data": [{"id": "l201", "Last_Name": "Prospect", "Company": "Tech Co", "Email": "lead@tech.co", "Lead_Source": "Web", "Owner": {"name": "Lead Owner"}}],
             "info": {"count": 1},
         }
         leads_resp = await client.get("/api/v1/zoho/leads", headers=headers)
         assert leads_resp.status_code == 200
         assert leads_resp.json()["data"][0]["company"] == "Tech Co"
+        assert leads_resp.json()["data"][0]["lead_source"] == "Web"
+        assert leads_resp.json()["data"][0]["owner"] == "Lead Owner"
 
         # Deals
         mock_exec.return_value = {
-            "data": [{"id": "d301", "Deal_Name": "Enterprise License", "Amount": "50000.0", "Stage": "Negotiation"}],
+            "data": [{"id": "d301", "Deal_Name": "Enterprise License", "Amount": "50000.0", "Currency": "USD", "Stage": "Negotiation", "Probability": 75, "Owner": {"name": "Deal Owner"}}],
             "info": {"count": 1},
         }
         deals_resp = await client.get("/api/v1/zoho/deals", headers=headers)
         assert deals_resp.status_code == 200
         assert deals_resp.json()["data"][0]["amount"] == 50000.0
+        assert deals_resp.json()["data"][0]["currency"] == "USD"
+        assert deals_resp.json()["data"][0]["owner"] == "Deal Owner"
 
         # Accounts
         mock_exec.return_value = {
-            "data": [{"id": "a401", "Account_Name": "Global Megacorp", "Industry": "Software"}],
+            "data": [{"id": "a401", "Account_Name": "Global Megacorp", "Industry": "Software", "Account_Type": "Customer", "Billing_Country": "US", "Owner": {"name": "Account Owner"}}],
             "info": {"count": 1},
         }
         accounts_resp = await client.get("/api/v1/zoho/accounts", headers=headers)
         assert accounts_resp.status_code == 200
         assert accounts_resp.json()["data"][0]["account_name"] == "Global Megacorp"
+        assert accounts_resp.json()["data"][0]["account_type"] == "Customer"
+        assert accounts_resp.json()["data"][0]["billing_country"] == "US"
+        assert accounts_resp.json()["data"][0]["owner"] == "Account Owner"
+
+
+@pytest.mark.asyncio
+async def test_crm_rejects_non_zoho_selected_integration(
+    client: AsyncClient,
+    authenticated_user_and_integration: dict,
+    db_session: AsyncSession,
+):
+    """A selected ERP connection must not be usable as a Zoho CRM scope."""
+    user_id = authenticated_user_and_integration["user_id"]
+    other_integration = Integration(
+        user_id=user_id,
+        provider="odoo",
+        connection_name="Other ERP",
+        status="active",
+    )
+    db_session.add(other_integration)
+    await db_session.commit()
+    await db_session.refresh(other_integration)
+
+    response = await client.get(
+        f"/api/v1/zoho/contacts?integration_id={other_integration.id}",
+        headers=authenticated_user_and_integration["headers"],
+    )
+    assert response.status_code == 400
+    assert "not a ZOHO connection" in response.json()["detail"]

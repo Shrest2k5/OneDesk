@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Users, Search, RefreshCw, Mail, Phone, Building, Calendar, Eye, Code, ExternalLink } from 'lucide-react'
 import { Card } from '@/components/common/Card'
@@ -15,7 +15,8 @@ import type { ZohoContact } from '@/types/crm'
 import { QuickSyncModal } from '@/components/sync/QuickSyncModal'
 
 export const ContactsPage: React.FC = () => {
-  const { activeIntegrationId, hasActiveConnection } = useIntegrations()
+  const { activeIntegrationId, activeIntegration, hasActiveConnection } = useIntegrations()
+  const isZohoSelected = activeIntegration?.provider === 'zoho' && activeIntegration.status === 'active'
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(25)
   const [searchQuery, setSearchQuery] = useState('')
@@ -37,9 +38,15 @@ export const ContactsPage: React.FC = () => {
         page,
         per_page: perPage,
       }),
-    enabled: hasActiveConnection,
+    enabled: Boolean(activeIntegrationId) && hasActiveConnection && isZohoSelected,
     staleTime: 60000,
   })
+
+  useEffect(() => {
+    setPage(1)
+    setSearchQuery('')
+    setSelectedContact(null)
+  }, [activeIntegrationId])
 
   const contacts = response?.data || []
   const pagination = response?.pagination
@@ -48,7 +55,7 @@ export const ContactsPage: React.FC = () => {
   const filteredContacts = contacts.filter((c) => {
     if (!searchQuery.trim()) return true
     const q = searchQuery.toLowerCase()
-    const fullName = `${c.first_name || ''} ${c.last_name}`.toLowerCase()
+    const fullName = `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase()
     return (
       fullName.includes(q) ||
       (c.email && c.email.toLowerCase().includes(q)) ||
@@ -109,12 +116,12 @@ export const ContactsPage: React.FC = () => {
         </div>
 
         {/* Content Table / Skeletons / Empty */}
-        {!hasActiveConnection ? (
+        {!isZohoSelected ? (
           <div className="p-8">
             <EmptyState
               icon={Users}
-              title="No Active ERP Connection"
-              description="Connect your Zoho CRM account in the Integrations section to view contacts."
+              title="No Zoho CRM Connection Selected"
+              description="Select an active Zoho CRM integration or connect one in the Integrations section to view contacts."
               actionLabel="Go to Integrations"
               onAction={() => (window.location.href = '/integrations')}
             />
@@ -154,7 +161,8 @@ export const ContactsPage: React.FC = () => {
                   <th className="py-3 px-4">Email</th>
                   <th className="py-3 px-4">Phone</th>
                   <th className="py-3 px-4">Account / Company</th>
-                  <th className="py-3 px-4">Created Time</th>
+                  <th className="py-3 px-4">Owner</th>
+                  <th className="py-3 px-4">Modified</th>
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
@@ -171,10 +179,10 @@ export const ContactsPage: React.FC = () => {
                     <td className="py-3.5 px-4 font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-[11px] shrink-0">
-                          {contact.first_name?.[0]?.toUpperCase() || contact.last_name[0]?.toUpperCase() || 'C'}
+                          {contact.first_name?.[0]?.toUpperCase() || contact.last_name?.[0]?.toUpperCase() || 'C'}
                         </div>
                         <span>
-                          {contact.first_name ? `${contact.first_name} ${contact.last_name}` : contact.last_name}
+                          {contact.first_name ? `${contact.first_name} ${contact.last_name || ''}` : contact.last_name || '—'}
                         </span>
                       </div>
                     </td>
@@ -208,7 +216,8 @@ export const ContactsPage: React.FC = () => {
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-400 text-[11px]">{formatDate(contact.created_time)}</td>
+                    <td className="py-3.5 px-4 text-slate-600">{contact.owner || '—'}</td>
+                    <td className="py-3.5 px-4 text-slate-400 text-[11px]">{formatDate(contact.modified_time)}</td>
                     <td className="py-3.5 px-4 text-right">
                       <Button variant="ghost" size="sm" className="text-indigo-600 group-hover:text-indigo-700">
                         View
@@ -238,7 +247,7 @@ export const ContactsPage: React.FC = () => {
         <Drawer
           isOpen={!!selectedContact}
           onClose={() => setSelectedContact(null)}
-          title={`${selectedContact.first_name || ''} ${selectedContact.last_name}`.trim()}
+          title={`${selectedContact.first_name || ''} ${selectedContact.last_name || ''}`.trim() || 'Contact'}
           subtitle={`Zoho Record ID: ${selectedContact.id}`}
         >
           {/* Tab Controls */}
@@ -275,7 +284,7 @@ export const ContactsPage: React.FC = () => {
                 </div>
                 <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Last Name</span>
-                  <span className="text-slate-900 font-semibold">{selectedContact.last_name}</span>
+                  <span className="text-slate-900 font-semibold">{selectedContact.last_name || '—'}</span>
                 </div>
                 <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Email Address</span>
@@ -286,8 +295,16 @@ export const ContactsPage: React.FC = () => {
                   <span className="text-slate-900 font-mono">{selectedContact.phone || '—'}</span>
                 </div>
                 <div className="py-3 px-4 flex justify-between">
+                  <span className="text-slate-500 font-medium">Mobile Number</span>
+                  <span className="text-slate-900 font-mono">{selectedContact.mobile || '—'}</span>
+                </div>
+                <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Account Name</span>
                   <span className="text-slate-900 font-semibold">{selectedContact.account_name || '—'}</span>
+                </div>
+                <div className="py-3 px-4 flex justify-between">
+                  <span className="text-slate-500 font-medium">Owner</span>
+                  <span className="text-slate-900 font-semibold">{selectedContact.owner || '—'}</span>
                 </div>
                 <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Record Created</span>

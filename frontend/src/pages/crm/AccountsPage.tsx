@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Building2, Search, RefreshCw, Globe, Phone, MapPin, Briefcase, Code, ExternalLink } from 'lucide-react'
 import { Card } from '@/components/common/Card'
@@ -15,7 +15,8 @@ import type { ZohoAccount } from '@/types/crm'
 import { QuickSyncModal } from '@/components/sync/QuickSyncModal'
 
 export const AccountsPage: React.FC = () => {
-  const { activeIntegrationId, hasActiveConnection } = useIntegrations()
+  const { activeIntegrationId, activeIntegration, hasActiveConnection } = useIntegrations()
+  const isZohoSelected = activeIntegration?.provider === 'zoho' && activeIntegration.status === 'active'
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(25)
   const [searchQuery, setSearchQuery] = useState('')
@@ -37,9 +38,15 @@ export const AccountsPage: React.FC = () => {
         page,
         per_page: perPage,
       }),
-    enabled: hasActiveConnection,
+    enabled: Boolean(activeIntegrationId) && hasActiveConnection && isZohoSelected,
     staleTime: 60000,
   })
+
+  useEffect(() => {
+    setPage(1)
+    setSearchQuery('')
+    setSelectedAccount(null)
+  }, [activeIntegrationId])
 
   const accounts = response?.data || []
   const pagination = response?.pagination
@@ -107,12 +114,12 @@ export const AccountsPage: React.FC = () => {
         </div>
 
         {/* Content Table / Skeletons / Empty */}
-        {!hasActiveConnection ? (
+        {!isZohoSelected ? (
           <div className="p-8">
             <EmptyState
               icon={Building2}
-              title="No Active ERP Connection"
-              description="Connect your Zoho CRM account in the Integrations section to view account profiles."
+              title="No Zoho CRM Connection Selected"
+              description="Select an active Zoho CRM integration or connect one in the Integrations section to view account profiles."
               actionLabel="Go to Integrations"
               onAction={() => (window.location.href = '/integrations')}
             />
@@ -150,9 +157,12 @@ export const AccountsPage: React.FC = () => {
                 <tr>
                   <th className="py-3 px-4">Account / Company Name</th>
                   <th className="py-3 px-4">Industry</th>
+                  <th className="py-3 px-4">Type</th>
                   <th className="py-3 px-4">Website</th>
                   <th className="py-3 px-4">Phone</th>
                   <th className="py-3 px-4">Billing City</th>
+                  <th className="py-3 px-4">Country</th>
+                  <th className="py-3 px-4">Owner</th>
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
@@ -174,6 +184,7 @@ export const AccountsPage: React.FC = () => {
                         <span>{account.account_name}</span>
                       </div>
                     </td>
+                    <td className="py-3.5 px-4 text-slate-600">{account.account_type || '—'}</td>
                     <td className="py-3.5 px-4 text-slate-600">
                       {account.industry ? (
                         <div className="flex items-center gap-1.5">
@@ -220,6 +231,8 @@ export const AccountsPage: React.FC = () => {
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
+                    <td className="py-3.5 px-4 text-slate-600">{account.billing_country || '—'}</td>
+                    <td className="py-3.5 px-4 text-slate-600">{account.owner || '—'}</td>
                     <td className="py-3.5 px-4 text-right">
                       <Button variant="ghost" size="sm" className="text-indigo-600 group-hover:text-indigo-700">
                         View
@@ -287,8 +300,16 @@ export const AccountsPage: React.FC = () => {
                   <span className="text-slate-900 font-medium">{selectedAccount.industry || '—'}</span>
                 </div>
                 <div className="py-3 px-4 flex justify-between">
+                  <span className="text-slate-500 font-medium">Account Type</span>
+                  <span className="text-slate-900 font-medium">{selectedAccount.account_type || '—'}</span>
+                </div>
+                <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Billing City</span>
                   <span className="text-slate-900 font-medium">{selectedAccount.billing_city || '—'}</span>
+                </div>
+                <div className="py-3 px-4 flex justify-between">
+                  <span className="text-slate-500 font-medium">Billing Country</span>
+                  <span className="text-slate-900 font-medium">{selectedAccount.billing_country || '—'}</span>
                 </div>
                 <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Website</span>
@@ -297,6 +318,10 @@ export const AccountsPage: React.FC = () => {
                 <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Phone</span>
                   <span className="text-slate-900 font-mono">{selectedAccount.phone || '—'}</span>
+                </div>
+                <div className="py-3 px-4 flex justify-between">
+                  <span className="text-slate-500 font-medium">Owner</span>
+                  <span className="text-slate-900 font-semibold">{selectedAccount.owner || '—'}</span>
                 </div>
                 <div className="py-3 px-4 flex justify-between">
                   <span className="text-slate-500 font-medium">Created Time</span>

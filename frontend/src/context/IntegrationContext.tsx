@@ -33,7 +33,8 @@ export const IntegrationProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Set default active integration if available and none selected
   useEffect(() => {
-    if (integrations.length > 0 && !activeIntegrationId) {
+    const selectedStillExists = activeIntegrationId && integrations.some((integration) => integration.id === activeIntegrationId)
+    if (integrations.length > 0 && !selectedStillExists) {
       const active = integrations.find((i) => i.status === 'active') || integrations[0]
       setActiveIntegrationId(active.id)
     } else if (integrations.length === 0) {

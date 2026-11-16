@@ -78,6 +78,11 @@ class IntegrationService:
         """
         if integration_id:
             integration = await self.get_user_integration(user_id, integration_id)
+            if integration.provider != provider_name:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Integration '{integration_id}' is not a {provider_name.upper()} connection.",
+                )
             if integration.status == "revoked":
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

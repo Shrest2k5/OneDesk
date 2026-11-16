@@ -13,10 +13,12 @@ class PaginationInfo(BaseModel):
 class ZohoContact(BaseModel):
     id: str
     first_name: Optional[str] = None
-    last_name: str
+    last_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    mobile: Optional[str] = None
     account_name: Optional[str] = None
+    owner: Optional[str] = None
     created_time: Optional[str] = None
     modified_time: Optional[str] = None
     raw_data: Optional[Dict[str, Any]] = None
@@ -27,11 +29,13 @@ class ZohoContact(BaseModel):
 class ZohoLead(BaseModel):
     id: str
     first_name: Optional[str] = None
-    last_name: str
+    last_name: Optional[str] = None
     company: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    lead_source: Optional[str] = None
     lead_status: Optional[str] = None
+    owner: Optional[str] = None
     created_time: Optional[str] = None
     modified_time: Optional[str] = None
     raw_data: Optional[Dict[str, Any]] = None
@@ -43,9 +47,12 @@ class ZohoDeal(BaseModel):
     id: str
     deal_name: str
     amount: Optional[float] = None
+    currency: Optional[str] = None
     stage: Optional[str] = None
     closing_date: Optional[str] = None
+    probability: Optional[float] = None
     account_name: Optional[str] = None
+    owner: Optional[str] = None
     created_time: Optional[str] = None
     modified_time: Optional[str] = None
     raw_data: Optional[Dict[str, Any]] = None
@@ -59,7 +66,10 @@ class ZohoAccount(BaseModel):
     phone: Optional[str] = None
     website: Optional[str] = None
     industry: Optional[str] = None
+    account_type: Optional[str] = None
     billing_city: Optional[str] = None
+    billing_country: Optional[str] = None
+    owner: Optional[str] = None
     created_time: Optional[str] = None
     modified_time: Optional[str] = None
     raw_data: Optional[Dict[str, Any]] = None

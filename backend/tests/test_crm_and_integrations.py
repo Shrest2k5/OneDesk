@@ -247,3 +247,32 @@ async def test_crm_rejects_non_zoho_selected_integration(
     )
     assert response.status_code == 400
     assert "not a ZOHO connection" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_zoho_health_check_uses_org_endpoint_and_reports_api_domain(
+    client: AsyncClient,
+    authenticated_user_and_integration: dict,
+):
+    """Health status must come from an authenticated Zoho org request, not DB status."""
+    from app.integrations.zoho.client import ZohoClient
+
+    integration = authenticated_user_and_integration["integration"]
+    integration.api_domain = "https://www.zohoapis.in"
+
+    with patch.object(
+        ZohoClient,
+        "get_organization",
+        new_callable=AsyncMock,
+        return_value={"org": [{"id": "org_in_1", "company_name": "India Org"}]},
+    ) as get_org:
+        response = await client.get(
+            f"/api/v1/integrations/{integration.id}/status",
+            headers=authenticated_user_and_integration["headers"],
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "connected"
+    assert response.json()["organization_name"] == "India Org"
+    assert response.json()["api_domain"] == "https://www.zohoapis.in"
+    get_org.assert_awaited_once()

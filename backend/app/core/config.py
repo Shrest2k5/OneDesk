@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     ZOHO_CLIENT_ID: str = "zoho_client_id_placeholder"
     ZOHO_CLIENT_SECRET: str = "zoho_client_secret_placeholder"
     ZOHO_REDIRECT_URI: str = "http://localhost:8000/api/v1/integrations/zoho/callback"
-    ZOHO_SCOPES: str = "ZohoCRM.modules.ALL,ZohoCRM.settings.ALL"
+    ZOHO_SCOPES: str = "ZohoCRM.modules.ALL,ZohoCRM.settings.ALL,ZohoCRM.org.READ"
     ZOHO_DEFAULT_ACCOUNTS_URL: str = "https://accounts.zoho.com"
 
     # Public application URL used after a provider has completed an OAuth callback.

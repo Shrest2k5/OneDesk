@@ -7,6 +7,7 @@ from app.core.logging import logger
 from app.integrations.base import BaseERPIntegration
 from app.integrations.registry import integration_registry
 from app.integrations.zoho.exceptions import ZohoOAuthError
+from app.integrations.zoho.exceptions import ZohoAPIError, ZohoRateLimitError, ZohoTokenExpiredError
 from app.integrations.zoho.oauth import ZohoOAuthClient
 from app.models.integration import Integration
 from app.repositories.integration_repository import IntegrationRepository
@@ -122,22 +123,66 @@ class ZohoIntegration(BaseERPIntegration):
         try:
             org_data = await client.get_organization()
             orgs = org_data.get("org", [])
-            org_name = orgs[0].get("company_name", "Zoho CRM") if orgs else "Zoho CRM"
+            org_name = (
+                orgs[0].get("company_name") or orgs[0].get("name") or "Zoho CRM"
+                if isinstance(orgs, list) and orgs and isinstance(orgs[0], dict)
+                else "Zoho CRM"
+            )
             return {
                 "status": "connected",
                 "provider": self.provider_name,
                 "connection_name": integration.connection_name,
-                "api_domain": integration.api_domain,
+                "api_domain": integration.api_domain or client.base_url.removesuffix("/crm/v8"),
                 "organization_name": org_name,
                 "token_status": "valid",
             }
-        except Exception as e:
-            logger.warning(f"Connection check failed for integration {integration.id}: {e}")
+        except ZohoTokenExpiredError as exc:
+            logger.warning(f"Connection check token expired for integration {integration.id}: {exc}")
             return {
-                "status": "error" if integration.status != "revoked" else "revoked",
+                "status": "revoked" if integration.status == "revoked" else "error",
                 "provider": self.provider_name,
                 "connection_name": integration.connection_name,
-                "error": str(e),
+                "api_domain": integration.api_domain or client.base_url.removesuffix("/crm/v8"),
+                "error": "Zoho access has expired or been revoked. Re-authorize this connection.",
+                "token_status": "expired",
+            }
+        except ZohoAPIError as exc:
+            logger.warning(
+                f"Connection check API failure for integration {integration.id}: "
+                f"status={exc.status_code}, details={exc.details}"
+            )
+            if exc.status_code == 403:
+                message = "Zoho denied organization access. Re-authorize with the ZohoCRM.org.READ scope."
+            elif exc.status_code == 429:
+                message = "Zoho is rate limiting health checks. Please retry shortly."
+            else:
+                message = "Zoho CRM did not accept the health-check request. Please retry shortly."
+            return {
+                "status": "revoked" if integration.status == "revoked" else "error",
+                "provider": self.provider_name,
+                "connection_name": integration.connection_name,
+                "api_domain": integration.api_domain or client.base_url.removesuffix("/crm/v8"),
+                "error": message,
+                "token_status": integration.status,
+            }
+        except ZohoRateLimitError as exc:
+            logger.warning(f"Connection check rate-limited for integration {integration.id}: {exc}")
+            return {
+                "status": "error",
+                "provider": self.provider_name,
+                "connection_name": integration.connection_name,
+                "api_domain": integration.api_domain or client.base_url.removesuffix("/crm/v8"),
+                "error": "Zoho is rate limiting health checks. Please retry shortly.",
+                "token_status": integration.status,
+            }
+        except Exception as exc:
+            logger.warning(f"Connection check failed for integration {integration.id}: {type(exc).__name__}: {exc}")
+            return {
+                "status": "revoked" if integration.status == "revoked" else "error",
+                "provider": self.provider_name,
+                "connection_name": integration.connection_name,
+                "api_domain": integration.api_domain or client.base_url.removesuffix("/crm/v8"),
+                "error": "Unable to reach Zoho CRM. Check the network connection and retry.",
                 "token_status": integration.status,
             }
 

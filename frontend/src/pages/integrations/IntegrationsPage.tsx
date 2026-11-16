@@ -449,6 +449,7 @@ export const IntegrationsPage: React.FC = () => {
               <div className="font-semibold text-slate-900">OAuth Permissions Requested:</div>
               <div>&bull; ZohoCRM.modules.ALL (Contacts, Leads, Deals, Accounts)</div>
               <div>&bull; ZohoCRM.settings.ALL (Organization metadata)</div>
+              <div>&bull; ZohoCRM.org.READ (Connection health and organization identity)</div>
             </div>
 
             <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">

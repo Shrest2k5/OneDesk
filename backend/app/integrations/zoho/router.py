@@ -1,11 +1,13 @@
-from datetime import datetime
 from typing import Optional
+from urllib.parse import urlencode
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user, get_db
+from app.core.config import settings
 from app.core.logging import logger
 from app.integrations.zoho.exceptions import ZohoOAuthError
 from app.integrations.zoho.integration import zoho_integration
@@ -33,18 +35,6 @@ class ZohoConnectResponse(BaseModel):
     authorization_url: str
     state: str
     data_center: str
-
-
-class ZohoCallbackResponse(BaseModel):
-    message: str
-    integration_id: uuid.UUID
-    connection_name: str
-    provider: str
-    status: str
-    api_domain: Optional[str]
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 # --- Endpoints ---
@@ -76,8 +66,6 @@ async def initiate_zoho_connect(
 
 @router.get(
     "/callback",
-    response_model=ZohoCallbackResponse,
-    status_code=status.HTTP_200_OK,
     summary="Handle Zoho OAuth 2.0 redirect callback",
 )
 async def handle_zoho_callback(
@@ -91,18 +79,21 @@ async def handle_zoho_callback(
     Validates state parameter, exchanges authorization code for tokens,
     and records the connection.
     """
+    def frontend_callback_redirect(callback_status: str, integration_id: Optional[uuid.UUID] = None) -> RedirectResponse:
+        """Return users to the SPA without forwarding provider credentials or errors."""
+        query = {"status": callback_status}
+        if integration_id:
+            query["integration_id"] = str(integration_id)
+        location = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/integrations/zoho/callback?{urlencode(query)}"
+        return RedirectResponse(url=location, status_code=status.HTTP_303_SEE_OTHER)
+
     if error:
         logger.warning(f"Zoho OAuth callback received error: {error}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Zoho authorization was denied or failed: {error}",
-        )
+        return frontend_callback_redirect("error")
 
     if not code or not state:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing required OAuth 'code' or 'state' parameters.",
-        )
+        logger.warning("Zoho OAuth callback missing required code or state parameter")
+        return frontend_callback_redirect("error")
 
     try:
         integration = await zoho_integration.handle_oauth_callback(
@@ -111,18 +102,15 @@ async def handle_zoho_callback(
             session=session,
         )
     except ZohoOAuthError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        )
+        # Do not reflect token/state validation details to the browser. They can
+        # reveal OAuth flow information and are not actionable in the SPA.
+        logger.warning(f"Zoho OAuth callback failed: {exc}")
+        return frontend_callback_redirect("error")
+    except Exception:
+        # Token exchange and persistence failures must return the user to the SPA
+        # without exposing provider responses, codes, or internal details.
+        logger.exception("Unexpected Zoho OAuth callback failure")
+        return frontend_callback_redirect("error")
 
-    return ZohoCallbackResponse(
-        message="Zoho CRM connection established successfully.",
-        integration_id=integration.id,
-        connection_name=integration.connection_name,
-        provider=integration.provider,
-        status=integration.status,
-        api_domain=integration.api_domain,
-        created_at=integration.created_at,
-    )
+    return frontend_callback_redirect("success", integration.id)
 

@@ -38,13 +38,38 @@ class AuthService:
         return new_user
 
     async def authenticate(self, data: UserLogin) -> User:
-        """Authenticate user credentials and return the user model."""
+        """
+        Authenticate user credentials and return the user model.
+
+        Distinguishes unknown user from incorrect password:
+        - Unknown email: Raises 401 with code 'USER_NOT_FOUND'
+        - Incorrect password: Raises 401 with code 'INVALID_CREDENTIALS'
+
+        Security Trade-off Notice:
+        Returning 'USER_NOT_FOUND' intentionally allows account existence discovery for the supplied email
+        to provide a streamlined user registration onboarding experience. No additional sensitive user
+        metadata, password hashes, or internal IDs are disclosed.
+        """
         user = await self.user_repo.get_by_email(data.email)
-        if not user or not verify_password(data.password, user.hashed_password):
-            logger.warning(f"Authentication failed for email '{data.email}'.")
+        if not user:
+            logger.warning(f"Authentication failed: User with email '{data.email}' not found.")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password.",
+                detail={
+                    "code": "USER_NOT_FOUND",
+                    "message": "No account found with this email address. Please create an account to continue.",
+                },
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not verify_password(data.password, user.hashed_password):
+            logger.warning(f"Authentication failed: Incorrect password for email '{data.email}'.")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "code": "INVALID_CREDENTIALS",
+                    "message": "Incorrect email or password. Please try again.",
+                },
                 headers={"WWW-Authenticate": "Bearer"},
             )
 

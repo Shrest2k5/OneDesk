@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
+from urllib.parse import parse_qs, urlparse
 import uuid
 import pytest
 from httpx import AsyncClient
@@ -132,16 +133,17 @@ async def test_zoho_callback_success(client: AsyncClient):
         callback_resp = await client.get(
             f"/api/v1/integrations/zoho/callback?code=mock_auth_code_123&state={state}"
         )
-        assert callback_resp.status_code == 200
-        data = callback_resp.json()
-        assert data["provider"] == "zoho"
-        assert data["connection_name"] == "Corporate Zoho CRM"
-        assert data["status"] == "active"
-        assert data["api_domain"] == "https://www.zohoapis.com"
-        assert "integration_id" in data
-        # Ensure tokens are never exposed
-        assert "access_token" not in data
-        assert "refresh_token" not in data
+        assert callback_resp.status_code == 303
+        location = callback_resp.headers["location"]
+        redirect_url = urlparse(location)
+        redirect_params = parse_qs(redirect_url.query)
+        assert redirect_url.path == "/integrations/zoho/callback"
+        assert redirect_params["status"] == ["success"]
+        assert len(redirect_params["integration_id"]) == 1
+        # The browser redirect contains only safe status information.
+        assert "access_token" not in location
+        assert "refresh_token" not in location
+        assert "mock_auth_code_123" not in location
 
 
 @pytest.mark.asyncio
@@ -149,17 +151,18 @@ async def test_zoho_callback_errors(client: AsyncClient):
     """Test callback rejection with error query parameter or missing parameters."""
     # User denied authorization
     denied_resp = await client.get("/api/v1/integrations/zoho/callback?error=access_denied")
-    assert denied_resp.status_code == 400
-    assert "denied or failed" in denied_resp.json()["detail"]
+    assert denied_resp.status_code == 303
+    assert parse_qs(urlparse(denied_resp.headers["location"]).query) == {"status": ["error"]}
 
     # Missing state or code
     missing_resp = await client.get("/api/v1/integrations/zoho/callback?code=only_code")
-    assert missing_resp.status_code == 400
+    assert missing_resp.status_code == 303
+    assert parse_qs(urlparse(missing_resp.headers["location"]).query) == {"status": ["error"]}
 
     # Tampered state
     tampered_resp = await client.get(
         "/api/v1/integrations/zoho/callback?code=auth_code&state=invalid_tampered_state"
     )
-    assert tampered_resp.status_code == 400
-    assert "Invalid or tampered" in tampered_resp.json()["detail"]
+    assert tampered_resp.status_code == 303
+    assert parse_qs(urlparse(tampered_resp.headers["location"]).query) == {"status": ["error"]}
 

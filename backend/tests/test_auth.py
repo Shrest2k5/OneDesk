@@ -99,7 +99,11 @@ async def test_user_login_invalid_credentials(client: AsyncClient):
         json={"email": "dan@enterprise.com", "password": "WrongPassword!"},
     )
     assert resp1.status_code == 401
-    assert "Incorrect email or password" in resp1.json()["detail"]
+    detail1 = resp1.json()["detail"]
+    message1 = detail1["message"] if isinstance(detail1, dict) else detail1
+    assert "Incorrect email or password" in message1
+    if isinstance(detail1, dict):
+        assert detail1.get("code") == "INVALID_CREDENTIALS"
 
     # Unknown email
     resp2 = await client.post(
@@ -107,6 +111,54 @@ async def test_user_login_invalid_credentials(client: AsyncClient):
         json={"email": "nonexistent@enterprise.com", "password": "AnyPassword123!"},
     )
     assert resp2.status_code == 401
+    detail2 = resp2.json()["detail"]
+    if isinstance(detail2, dict):
+        assert detail2.get("code") == "USER_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_user_login_user_not_found(client: AsyncClient):
+    """Test login failure with unregistered email returns structured USER_NOT_FOUND."""
+    resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "unknown-user-999@enterprise.com", "password": "AnyValidPassword123!"},
+    )
+    assert resp.status_code == 401
+    data = resp.json()
+    assert "detail" in data
+    detail = data["detail"]
+    assert isinstance(detail, dict)
+    assert detail["code"] == "USER_NOT_FOUND"
+    assert "No account found with this email address" in detail["message"]
+    # Ensure no internal secrets or tokens leaked
+    assert "access_token" not in data
+    assert "password" not in data
+    assert "hashed_password" not in data
+
+
+@pytest.mark.asyncio
+async def test_user_login_wrong_password(client: AsyncClient):
+    """Test login failure with existing email but wrong password returns INVALID_CREDENTIALS."""
+    # Register user first
+    await client.post(
+        "/api/v1/auth/register",
+        json={"name": "Alice", "email": "alice-test@enterprise.com", "password": "RealPassword123!"},
+    )
+
+    # Attempt with incorrect password
+    resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "alice-test@enterprise.com", "password": "WrongPassword999!"},
+    )
+    assert resp.status_code == 401
+    data = resp.json()
+    assert "detail" in data
+    detail = data["detail"]
+    assert isinstance(detail, dict)
+    assert detail["code"] == "INVALID_CREDENTIALS"
+    assert "Incorrect email or password" in detail["message"]
+    # Ensure no tokens returned
+    assert "access_token" not in data
 
 
 @pytest.mark.asyncio

@@ -393,18 +393,11 @@ curl -X POST "http://localhost:8000/api/v1/integrations/zoho/connect" \
 ```
 Open `authorization_url` in your browser. Upon approving permissions, Zoho redirects to:
 `http://localhost:8000/api/v1/integrations/zoho/callback?code=1000.xxxx&state=yyyy`
-Which exchanges the code and saves the connection:
-```json
-{
-  "message": "Zoho CRM connection established successfully.",
-  "integration_id": "88b488e9-35ff-4122-87fb-87d4cec9d6e3",
-  "connection_name": "Production Zoho CRM",
-  "provider": "zoho",
-  "status": "active",
-  "api_domain": "https://www.zohoapis.com",
-  "created_at": "2026-11-12T17:35:00Z"
-}
-```
+The backend exchanges the code, validates state, and saves encrypted credentials.
+It then returns a `303 See Other` redirect to
+`{FRONTEND_BASE_URL}/integrations/zoho/callback?status=success&integration_id=...`.
+Only the status and integration ID are forwarded to the browser; OAuth codes and
+tokens never leave the backend callback.
 
 ---
 
@@ -489,7 +482,7 @@ To test against your real Zoho CRM environment:
    - Log in to your Zoho account.
    - Click **Accept**.
 6. **Verify Redirection**:
-   - Browser will redirect to `http://localhost:8000/api/v1/integrations/zoho/callback?...` displaying JSON confirming connection establishment.
+   - Zoho redirects to the backend callback, which completes the token exchange and redirects the browser to `{FRONTEND_BASE_URL}/integrations/zoho/callback`. The SPA refreshes Integrations and shows the connection result.
 7. **Verify Active Connection**:
    - Call `GET /api/v1/integrations`. Your new connection appears with `status: "active"`.
    - Call `GET /api/v1/integrations/{id}/status`. It queries the Zoho CRM `/org` endpoint live and confirms connectivity.

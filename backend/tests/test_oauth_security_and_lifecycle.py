@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from urllib.parse import parse_qs, urlparse
 from unittest.mock import AsyncMock, patch
 import uuid
 from cryptography.fernet import Fernet
@@ -430,15 +431,15 @@ async def test_api_endpoints_never_expose_tokens(client: AsyncClient, db_session
     with patch.object(ZohoOAuthClient, "exchange_code", new_callable=AsyncMock, return_value=mock_token_result), \
          patch.object(ZohoOAuthClient, "fetch_organization_id", new_callable=AsyncMock, return_value="org_leak_999"):
         cb_resp = await client.get(f"/api/v1/integrations/zoho/callback?code=mock_code&state={state}")
-        assert cb_resp.status_code == 200
-        cb_json = cb_resp.json()
-        int_id = cb_json["integration_id"]
+        assert cb_resp.status_code == 303
+        callback_location = cb_resp.headers["location"]
+        int_id = parse_qs(urlparse(callback_location).query)["integration_id"][0]
 
         # 1. Callback response check
-        assert "access_token" not in cb_json
-        assert "refresh_token" not in cb_json
-        assert "secret_access_value_must_not_leak" not in cb_resp.text
-        assert "secret_refresh_value_must_not_leak" not in cb_resp.text
+        assert "access_token" not in callback_location
+        assert "refresh_token" not in callback_location
+        assert "secret_access_value_must_not_leak" not in callback_location
+        assert "secret_refresh_value_must_not_leak" not in callback_location
 
         # 2. List endpoint check
         list_resp = await client.get("/api/v1/integrations", headers=headers)

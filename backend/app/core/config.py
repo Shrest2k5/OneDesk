@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     ZOHO_SCOPES: str = "ZohoCRM.modules.ALL,ZohoCRM.settings.ALL"
     ZOHO_DEFAULT_ACCOUNTS_URL: str = "https://accounts.zoho.com"
 
+    # Public application URL used after a provider has completed an OAuth callback.
+    # This is deliberately separate from ZOHO_REDIRECT_URI: Zoho must always send
+    # authorization codes to the backend callback, where they can be validated and
+    # exchanged without exposing credentials to the browser application.
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
+
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:3000",

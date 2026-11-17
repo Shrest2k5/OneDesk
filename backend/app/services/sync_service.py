@@ -1,8 +1,8 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 import uuid
-from sqlalchemy import desc, select
+from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import logger
@@ -97,11 +97,46 @@ class SyncService:
         await self.session.refresh(sync_job)
         return sync_job
 
+    async def retry_sync_record(self, sync_id: uuid.UUID) -> Optional[SyncHistory]:
+        """Return a retrying execution to in_progress without losing its audit row."""
+        query = select(SyncHistory).where(SyncHistory.id == sync_id)
+        result = await self.session.execute(query)
+        sync_job = result.scalar_one_or_none()
+        if not sync_job:
+            return None
+        sync_job.status = "in_progress"
+        sync_job.error_message = None
+        sync_job.completed_at = None
+        await self.session.commit()
+        return sync_job
+
+    async def recover_abandoned_syncs(self, stale_after: timedelta = timedelta(hours=2)) -> int:
+        """Fail only executions older than the worker's maximum task lifetime.
+
+        This is intended for an operator/periodic cleanup job. The two-hour
+        default is deliberately above Celery's one-hour hard limit, so active
+        tasks are not interrupted by recovery.
+        """
+        cutoff = datetime.now(timezone.utc) - stale_after
+        result = await self.session.execute(
+            update(SyncHistory)
+            .where(SyncHistory.status == "in_progress", SyncHistory.started_at < cutoff)
+            .values(
+                status="failed",
+                completed_at=datetime.now(timezone.utc),
+                error_message="Execution abandoned after exceeding the recovery grace period.",
+            )
+        )
+        await self.session.commit()
+        return result.rowcount or 0
+
     async def sync_resource(
         self,
         integration: Integration,
         resource_type: str,
         incremental: bool = True,
+        sync_id: Optional[uuid.UUID] = None,
+        fail_on_error: bool = True,
     ) -> SyncHistory:
         """
         Execute full or incremental synchronization of an ERP resource type
@@ -111,6 +146,18 @@ class SyncService:
         if not provider:
             raise ValueError(f"Unsupported ERP provider '{integration.provider}'")
 
+        # Create the audit job before doing external work. A queued API request
+        # passes its existing row so the worker updates the row the caller sees.
+        sync_job = await (
+            self._get_sync_record(sync_id)
+            if sync_id
+            else self.start_sync_record(integration.id, resource_type)
+        )
+        if sync_job is None:
+            raise ValueError(f"Sync execution {sync_id} not found")
+        sync_job.status = "in_progress"
+        await self.session.commit()
+
         # Determine delta sync timestamp if incremental
         modified_since: Optional[str] = None
         if incremental:
@@ -118,8 +165,6 @@ class SyncService:
             if last_sync and last_sync.completed_at:
                 modified_since = last_sync.completed_at.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        # Create audit job
-        sync_job = await self.start_sync_record(integration.id, resource_type)
         total_records = 0
         page = 1
         per_page = 200
@@ -150,8 +195,13 @@ class SyncService:
 
         except Exception as exc:
             logger.error(f"Sync failed for integration {integration.id} [{resource_type}]: {exc}")
-            await self.fail_sync_record(sync_job.id, str(exc))
+            if fail_on_error:
+                await self.fail_sync_record(sync_job.id, str(exc))
             raise
+
+    async def _get_sync_record(self, sync_id: uuid.UUID) -> Optional[SyncHistory]:
+        result = await self.session.execute(select(SyncHistory).where(SyncHistory.id == sync_id))
+        return result.scalar_one_or_none()
 
     async def get_history_by_integration(
         self,

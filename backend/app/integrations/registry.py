@@ -18,7 +18,16 @@ class IntegrationRegistry:
 
     def get(self, provider_name: str) -> Optional[BaseERPIntegration]:
         """Resolve a provider integration by name."""
-        return self._providers.get(provider_name.lower().strip())
+        name = provider_name.lower().strip()
+        provider = self._providers.get(name)
+        if provider is None and name == "zoho":
+            # Workers can import this registry without importing the API router.
+            # Load built-ins lazily so registration does not depend on import order.
+            from app.integrations.zoho.integration import zoho_integration
+
+            self.register(zoho_integration)
+            provider = self._providers.get(name)
+        return provider
 
     def list_providers(self) -> List[str]:
         """List all currently registered ERP provider names."""

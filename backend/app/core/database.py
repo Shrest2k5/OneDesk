@@ -1,17 +1,19 @@
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 from app.core.config import settings
 from app.core.logging import logger
 
-# SQLAlchemy 2.0 Async Engine
-# Configure connection pool settings suitable for enterprise API usage
+# Celery tasks run an asyncio event loop per task.  asyncpg connections cannot be
+# moved between loops, so a process-global QueuePool is unsafe here.  NullPool
+# keeps connection ownership inside the current session/loop and is also safe for
+# the FastAPI event loop.
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,           # Never echo SQL — prevents token values appearing in logs
     hide_parameters=True, # Suppress bound parameter values in error tracebacks
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    poolclass=NullPool,
 )
 
 # Async Session Factory

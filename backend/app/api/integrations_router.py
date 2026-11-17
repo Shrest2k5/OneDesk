@@ -122,12 +122,13 @@ async def trigger_sync(
 
     if request.async_mode:
         from app.workers.sync_worker import sync_resource_task
+        sync_job = await sync_service.start_sync_record(integration.id, request.resource_type)
         task = sync_resource_task.delay(
             integration_id=str(integration.id),
             resource_type=request.resource_type,
             incremental=request.incremental,
+            sync_id=str(sync_job.id),
         )
-        sync_job = await sync_service.start_sync_record(integration.id, request.resource_type)
         return sync_job
 
     # Synchronous inline execution

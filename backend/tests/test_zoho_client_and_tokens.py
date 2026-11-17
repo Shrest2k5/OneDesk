@@ -146,6 +146,46 @@ async def test_zoho_client_fetch_records_success(sample_integration: Integration
 
 
 @pytest.mark.asyncio
+async def test_zoho_client_supplies_module_fields_and_incremental_header(
+    sample_integration: Integration, db_session: AsyncSession
+):
+    """Get Records requests always include a valid, bounded field projection."""
+    client = ZohoClient(sample_integration, db_session)
+
+    with patch("httpx.AsyncClient.request", new_callable=AsyncMock) as mock_req:
+        mock_req.return_value = httpx.Response(
+            status_code=200,
+            json={"data": [], "info": {"more_records": False}},
+            request=httpx.Request("GET", "https://www.zohoapis.com/crm/v8/Contacts"),
+        )
+
+        for module in ("contacts", "leads", "deals", "accounts"):
+            await client.fetch_records(module=module, modified_since="2026-01-01T00:00:00Z")
+            request_kwargs = mock_req.call_args.kwargs
+            fields = request_kwargs["params"]["fields"].split(",")
+            assert fields[0] == "id"
+            assert "Created_Time" in fields
+            assert "Modified_Time" in fields
+            assert len(fields) <= 50
+            assert request_kwargs["headers"]["If-Modified-Since"] == "2026-01-01T00:00:00Z"
+
+
+@pytest.mark.asyncio
+async def test_zoho_client_caps_explicit_fields(sample_integration: Integration, db_session: AsyncSession):
+    client = ZohoClient(sample_integration, db_session)
+    with patch("httpx.AsyncClient.request", new_callable=AsyncMock) as mock_req:
+        mock_req.return_value = httpx.Response(
+            status_code=200,
+            json={"data": [], "info": {"more_records": False}},
+            request=httpx.Request("GET", "https://www.zohoapis.com/crm/v8/Deals"),
+        )
+        await client.fetch_records(module="deals", fields=[f"Custom_{i}" for i in range(100)])
+        fields = mock_req.call_args.kwargs["params"]["fields"].split(",")
+        assert len(fields) == 50
+        assert fields[:3] == ["id", "Created_Time", "Modified_Time"]
+
+
+@pytest.mark.asyncio
 async def test_zoho_client_fetch_records_empty_204(sample_integration: Integration, db_session: AsyncSession):
     """Test ZohoClient handling HTTP 204 No Content gracefully."""
     client = ZohoClient(sample_integration, db_session)
@@ -199,7 +239,7 @@ async def test_zoho_client_api_error_handling(sample_integration: Integration, d
 
     error_resp = httpx.Response(
         status_code=400,
-        json={"code": "INVALID_MODULE", "message": "the module name specified is invalid", "status": "error"},
+        json={"code": "INVALID_MODULE", "message": "the module name specified is invalid", "status": "error", "details": {"param_name": "fields"}},
         request=httpx.Request("GET", "https://www.zohoapis.com/crm/v8/UnknownModule"),
     )
 
@@ -210,4 +250,6 @@ async def test_zoho_client_api_error_handling(sample_integration: Integration, d
             await client.fetch_records(module="UnknownModule")
 
         assert "INVALID_MODULE" in str(exc_info.value)
+        assert "missing parameter: fields" in str(exc_info.value)
         assert exc_info.value.status_code == 400
+        assert exc_info.value.details["details"]["param_name"] == "fields"

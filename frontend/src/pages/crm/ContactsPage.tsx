@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Users, Search, RefreshCw, Mail, Phone, Building, Calendar, Eye, Code, ExternalLink } from 'lucide-react'
+import { Users, Search, RefreshCw, Mail, Phone, Building, Code, Database, CheckCircle2 } from 'lucide-react'
 import { Card } from '@/components/common/Card'
 import { Button } from '@/components/common/Button'
 import { Badge } from '@/components/common/Badge'
@@ -50,6 +50,7 @@ export const ContactsPage: React.FC = () => {
 
   const contacts = response?.data || []
   const pagination = response?.pagination
+  const recordsOnPage = pagination?.count ?? contacts.length
 
   // Client-side quick filter on current page
   const filteredContacts = contacts.filter((c) => {
@@ -69,12 +70,23 @@ export const ContactsPage: React.FC = () => {
       {/* Top Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Zoho CRM Contacts</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Normalized contact profiles fetched directly from your authorized Zoho CRM organization.
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <Users className="h-4 w-4" />
+            </span>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Contacts</h2>
+          </div>
+          <p className="text-sm text-slate-500">
+            Browse and manage contact records from the selected Zoho CRM organization.
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {isZohoSelected && activeIntegration && (
+            <Badge variant="active" className="bg-white">
+              <Database className="h-3 w-3" />
+              {activeIntegration.connection_name}
+            </Badge>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -95,10 +107,39 @@ export const ContactsPage: React.FC = () => {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Card noPadding className="p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Records loaded</span>
+            <Users className="h-4 w-4 text-indigo-600" />
+          </div>
+          <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{recordsOnPage}</div>
+          <p className="mt-1 text-[11px] text-slate-500">Returned on the current page</p>
+        </Card>
+        <Card noPadding className="p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Filtered view</span>
+            <Search className="h-4 w-4 text-slate-500" />
+          </div>
+          <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{filteredContacts.length}</div>
+          <p className="mt-1 text-[11px] text-slate-500">Matching the current search</p>
+        </Card>
+        <Card noPadding className="p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Connection</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          </div>
+          <div className="mt-2 text-lg font-bold tracking-tight text-slate-900">
+            {isZohoSelected ? 'Live' : 'Not selected'}
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">Zoho CRM data source</p>
+        </Card>
+      </div>
+
       {/* Main Table Card */}
       <Card noPadding>
         {/* Search & Filter Toolbar */}
-        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/40">
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
@@ -111,7 +152,9 @@ export const ContactsPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-500">
             {isFetching && <span className="text-[11px] text-indigo-600 animate-pulse">Syncing live records...</span>}
-            <span className="font-medium text-slate-700">{filteredContacts.length} displayed</span>
+            <span className="font-medium text-slate-700">
+              {filteredContacts.length} of {recordsOnPage} displayed
+            </span>
           </div>
         </div>
 
@@ -154,8 +197,8 @@ export const ContactsPage: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs divide-y divide-slate-100">
-              <thead className="bg-slate-50/70 text-slate-500 font-medium">
+            <table className="w-full min-w-[860px] text-left text-xs divide-y divide-slate-100">
+              <thead className="bg-slate-50/70 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
                 <tr>
                   <th className="py-3 px-4">Contact Name</th>
                   <th className="py-3 px-4">Email</th>

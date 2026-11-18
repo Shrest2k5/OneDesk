@@ -35,7 +35,9 @@ export const IntegrationProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     const selectedStillExists = activeIntegrationId && integrations.some((integration) => integration.id === activeIntegrationId)
     if (integrations.length > 0 && !selectedStillExists) {
-      const active = integrations.find((i) => i.status === 'active') || integrations[0]
+      const active = integrations.find((i) => i.status === 'active' && i.product === 'crm')
+        || integrations.find((i) => i.status === 'active')
+        || integrations[0]
       setActiveIntegrationId(active.id)
     } else if (integrations.length === 0) {
       setActiveIntegrationId(null)

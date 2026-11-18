@@ -4,6 +4,7 @@ import type {
   Integration,
   ZohoConnectRequest,
   ZohoConnectResponse,
+  BooksOrganization,
 } from '@/types/integration'
 
 export const integrationsApi = {
@@ -30,6 +31,28 @@ export const integrationsApi = {
   // Zoho specific
   initiateZohoConnect: async (data: ZohoConnectRequest): Promise<ZohoConnectResponse> => {
     const response = await apiClient.post<ZohoConnectResponse>('/integrations/zoho/connect', data)
+    return response.data
+  },
+
+  initiateZohoBooksConnect: async (data: ZohoConnectRequest): Promise<ZohoConnectResponse> => {
+    const response = await apiClient.post<ZohoConnectResponse>('/integrations/zoho/books/connect', data)
+    return response.data
+  },
+
+  listBooksOrganizations: async (integrationId: string): Promise<BooksOrganization[]> => {
+    const response = await apiClient.get<BooksOrganization[]>(`/integrations/zoho/books/${integrationId}/organizations`)
+    return response.data
+  },
+
+  refreshBooksOrganizations: async (integrationId: string): Promise<BooksOrganization[]> => {
+    const response = await apiClient.post<BooksOrganization[]>(`/integrations/zoho/books/${integrationId}/organizations/refresh`)
+    return response.data
+  },
+
+  selectBooksOrganization: async (integrationId: string, organizationId: string): Promise<BooksOrganization> => {
+    const response = await apiClient.put<BooksOrganization>(
+      `/integrations/zoho/books/${integrationId}/organizations/${encodeURIComponent(organizationId)}/select`,
+    )
     return response.data
   },
 }

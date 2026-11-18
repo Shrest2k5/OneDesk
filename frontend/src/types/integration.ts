@@ -3,6 +3,7 @@ export type IntegrationStatus = 'active' | 'expired' | 'revoked' | 'error'
 export interface Integration {
   id: string
   provider: string
+  product: 'crm' | 'books' | string
   connection_name: string
   external_account_id?: string | null
   status: IntegrationStatus
@@ -33,5 +34,19 @@ export interface ConnectionHealthStatus {
   organization_name?: string
   token_status?: string
   error?: string
+}
+
+export interface BooksOrganization {
+  id: string
+  external_organization_id: string
+  name: string
+  email?: string | null
+  currency_code?: string | null
+  currency_symbol?: string | null
+  time_zone?: string | null
+  is_default_org: boolean
+  is_org_active: boolean
+  fetched_at: string
+  selected: boolean
 }
 

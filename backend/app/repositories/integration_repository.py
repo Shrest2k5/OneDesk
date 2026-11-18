@@ -50,15 +50,33 @@ class IntegrationRepository:
         user_id: uuid.UUID,
         provider: str,
         external_account_id: str,
+        product: str = "crm",
     ) -> Optional[Integration]:
         """Find an existing connection by user, provider, and external account ID."""
         query = select(Integration).where(
             Integration.user_id == user_id,
             Integration.provider == provider,
+            Integration.product == product,
             Integration.external_account_id == external_account_id,
         )
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
+
+    async def get_by_user_provider_product(
+        self,
+        user_id: uuid.UUID,
+        provider: str,
+        product: str,
+    ) -> Optional[Integration]:
+        """Find a product connection when no external organization is selected yet."""
+        query = select(Integration).where(
+            Integration.user_id == user_id,
+            Integration.provider == provider,
+            Integration.product == product,
+            Integration.external_account_id.is_(None),
+        )
+        result = await self.session.execute(query)
+        return result.scalars().first()
 
     async def create_or_update(
         self,
@@ -66,6 +84,7 @@ class IntegrationRepository:
         provider: str,
         connection_name: str,
         access_token: str,
+        product: str = "crm",
         refresh_token: Optional[str] = None,
         token_expires_at: Optional[datetime] = None,
         api_domain: Optional[str] = None,
@@ -80,7 +99,14 @@ class IntegrationRepository:
             existing = await self.get_by_user_provider_account(
                 user_id=user_id,
                 provider=provider,
+                product=product,
                 external_account_id=external_account_id,
+            )
+        else:
+            existing = await self.get_by_user_provider_product(
+                user_id=user_id,
+                provider=provider,
+                product=product,
             )
 
         if existing:
@@ -100,6 +126,7 @@ class IntegrationRepository:
         new_integration = Integration(
             user_id=user_id,
             provider=provider,
+            product=product,
             connection_name=connection_name,
             external_account_id=external_account_id,
             access_token=access_token,

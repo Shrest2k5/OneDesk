@@ -49,7 +49,7 @@ export const Header: React.FC = () => {
             >
               {integrations.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.connection_name} ({item.provider.toUpperCase()} - {item.status})
+                  {item.connection_name} ({item.provider.toUpperCase()} {item.product.toUpperCase()} - {item.status})
                 </option>
               ))}
             </select>

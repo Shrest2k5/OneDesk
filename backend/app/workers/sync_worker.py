@@ -12,6 +12,12 @@ from app.services.sync_service import SyncService
 
 celery_logger = get_task_logger(__name__)
 
+RESOURCE_TYPES_BY_PRODUCT = {
+    "crm": ("contacts", "leads", "deals", "accounts"),
+    # Books API adapters are intentionally not implemented in this milestone.
+    "books": ("contacts", "invoices", "bills", "expenses", "items", "customer_payments", "vendor_payments", "estimates", "credit_notes"),
+}
+
 
 async def _create_sync_record(integration_id_str: str, resource_type: str) -> str:
     """Create one execution row for task retries to reuse."""
@@ -137,7 +143,17 @@ def sync_all_resources_task(
     """
     Celery task to synchronize all standard CRM resources for an integration.
     """
-    resources = ["contacts", "leads", "deals", "accounts"]
+    async def get_product() -> str:
+        async with async_session_factory() as session:
+            integration = await IntegrationRepository(session).get_by_id(uuid.UUID(integration_id))
+            if not integration:
+                raise ValueError(f"Integration with id {integration_id} not found.")
+            return integration.product
+
+    product = asyncio.run(get_product())
+    resources = RESOURCE_TYPES_BY_PRODUCT.get(product, ())
+    if not resources:
+        raise ValueError(f"No synchronization resource mapping exists for product '{product}'.")
     results = []
     for res in resources:
         res_summary = sync_resource_task.apply(args=[integration_id, res, incremental]).get()

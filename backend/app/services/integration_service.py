@@ -55,7 +55,7 @@ class IntegrationService:
     ) -> Dict[str, Any]:
         """Check live connection status against the external provider."""
         integration = await self.get_user_integration(user_id, integration_id)
-        provider = integration_registry.get(integration.provider)
+        provider = integration_registry.get(integration.provider, integration.product)
         if not provider:
             return {
                 "status": integration.status,
@@ -70,6 +70,7 @@ class IntegrationService:
         user_id: uuid.UUID,
         integration_id: Optional[uuid.UUID] = None,
         provider_name: str = "zoho",
+        product: str = "crm",
     ) -> Integration:
         """
         Resolve an active integration for data retrieval operations.
@@ -78,7 +79,7 @@ class IntegrationService:
         """
         if integration_id:
             integration = await self.get_user_integration(user_id, integration_id)
-            if integration.provider != provider_name:
+            if integration.provider != provider_name or integration.product != product:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Integration '{integration_id}' is not a {provider_name.upper()} connection.",
@@ -92,11 +93,27 @@ class IntegrationService:
 
         # Auto-resolve first active integration
         all_integrations = await self.repo.get_all_by_user(user_id)
-        active = [i for i in all_integrations if i.provider == provider_name and i.status == "active"]
+        active = [
+            i for i in all_integrations
+            if i.provider == provider_name and i.product == product and i.status == "active"
+        ]
         if not active:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"No active {provider_name.upper()} connection found. Please connect your account first.",
+                detail=f"No active {provider_name.upper()} {product.upper()} connection found. Please connect your account first.",
             )
         return active[0]
+
+    async def resolve_books_integration(
+        self, user_id: uuid.UUID, integration_id: uuid.UUID
+    ) -> Integration:
+        integration = await self.get_user_integration(user_id, integration_id)
+        if integration.provider != "zoho" or integration.product != "books":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Integration '{integration_id}' is not a ZOHO BOOKS connection.",
+            )
+        if integration.status == "revoked":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Zoho Books connection is revoked.")
+        return integration
 

@@ -79,7 +79,7 @@ export const QuickSyncModal: React.FC<QuickSyncModalProps> = ({
           >
             {integrations.map((i) => (
               <option key={i.id} value={i.id}>
-                {i.connection_name} ({i.provider.toUpperCase()} - {i.status})
+                {i.connection_name} ({i.provider.toUpperCase()} {i.product.toUpperCase()} - {i.status})
               </option>
             ))}
           </select>

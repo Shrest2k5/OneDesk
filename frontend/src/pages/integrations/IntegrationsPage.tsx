@@ -24,6 +24,7 @@ import { TableSkeleton } from '@/components/common/LoadingSkeleton'
 import { integrationsApi } from '@/api/integrations'
 import { useIntegrations } from '@/context/IntegrationContext'
 import { formatDate, formatRelativeTime } from '@/lib/utils'
+import { ZohoBooksOrganizations } from '@/components/integrations/ZohoBooksOrganizations'
 import type { Integration, ZohoDataCenter, ConnectionHealthStatus } from '@/types/integration'
 
 const ZOHO_DATA_CENTERS = [
@@ -42,11 +43,13 @@ export const IntegrationsPage: React.FC = () => {
 
   // Modal & Drawer States
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false)
+  const [connectionProduct, setConnectionProduct] = useState<'crm' | 'books'>('crm')
   const [connectionName, setConnectionName] = useState('My Zoho CRM')
   const [selectedDc, setSelectedDc] = useState<ZohoDataCenter>('in')
   const [connectError, setConnectError] = useState<string | null>(null)
 
   const [inspectIntegration, setInspectIntegration] = useState<Integration | null>(null)
+  const [booksOrganizationsIntegration, setBooksOrganizationsIntegration] = useState<Integration | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   // Status check state
@@ -59,11 +62,15 @@ export const IntegrationsPage: React.FC = () => {
 
   // Connect mutation
   const connectMutation = useMutation({
-    mutationFn: () =>
-      integrationsApi.initiateZohoConnect({
+    mutationFn: () => {
+      const request = {
         connection_name: connectionName.trim(),
         data_center: selectedDc,
-      }),
+      }
+      return connectionProduct === 'books'
+        ? integrationsApi.initiateZohoBooksConnect(request)
+        : integrationsApi.initiateZohoConnect(request)
+    },
     onSuccess: (data) => {
       // Redirect to Zoho OAuth authorization screen
       window.location.href = data.authorization_url
@@ -114,11 +121,13 @@ export const IntegrationsPage: React.FC = () => {
           size="sm"
           onClick={() => {
             setConnectError(null)
+            setConnectionProduct('crm')
+            setConnectionName('My Zoho CRM')
             setIsConnectModalOpen(true)
           }}
           leftIcon={<Plus className="w-4 h-4" />}
         >
-          Connect Zoho CRM
+          Connect Zoho
         </Button>
       </div>
 
@@ -143,9 +152,13 @@ export const IntegrationsPage: React.FC = () => {
             <EmptyState
               icon={Boxes}
               title="No ERP Accounts Connected"
-              description="Authorize your Zoho CRM account to enable real-time synchronization and unified REST API data retrieval."
-              actionLabel="Connect Zoho CRM"
-              onAction={() => setIsConnectModalOpen(true)}
+              description="Authorize a Zoho CRM or Zoho Books account to connect it to OneDesk."
+              actionLabel="Connect Zoho"
+              onAction={() => {
+                setConnectionProduct('crm')
+                setConnectionName('My Zoho CRM')
+                setIsConnectModalOpen(true)
+              }}
             />
           </div>
         ) : (
@@ -168,12 +181,12 @@ export const IntegrationsPage: React.FC = () => {
                     <td className="py-3.5 px-4 font-semibold text-slate-900">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-md bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-[10px] uppercase shrink-0">
-                          {item.provider.substring(0, 2)}
+                          {item.product.substring(0, 2)}
                         </div>
                         <span>{item.connection_name}</span>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 capitalize">{item.provider} CRM</td>
+                        <td className="py-3.5 px-4 capitalize">{item.provider} {item.product}</td>
                     <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500">
                       {item.external_account_id || '—'}
                     </td>
@@ -201,6 +214,11 @@ export const IntegrationsPage: React.FC = () => {
                         >
                           Details
                         </Button>
+                        {item.product === 'books' && (
+                          <Button variant="ghost" size="sm" onClick={() => setBooksOrganizationsIntegration(item)}>
+                            Organizations
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -315,6 +333,45 @@ export const IntegrationsPage: React.FC = () => {
                 size="sm"
                 onClick={() => {
                   setConnectError(null)
+                  setConnectionProduct('crm')
+                  setConnectionName('My Zoho CRM')
+                  setIsConnectModalOpen(true)
+                }}
+                className="w-full"
+                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+              >
+                Connect Account
+              </Button>
+            </div>
+          </Card>
+
+          {/* Zoho Books Card */}
+          <Card className="flex flex-col justify-between border-emerald-200 bg-gradient-to-b from-white to-emerald-50/30">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                  ZB
+                </div>
+                <Badge variant="active">OAuth Available</Badge>
+              </div>
+              <h4 className="text-sm font-semibold text-slate-900">Zoho Books</h4>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Secure, read-only authorization for your Zoho Books account. Organization selection and Books data are coming next.
+              </p>
+              <div className="mt-4 pt-4 border-t border-slate-100 space-y-1.5 text-[11px] text-slate-600">
+                <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /><span>Read-only OAuth scopes</span></div>
+                <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /><span>Multi-data-center support</span></div>
+                <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /><span>Credentials encrypted at rest</span></div>
+              </div>
+            </div>
+            <div className="mt-6 pt-4 border-t border-slate-100">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setConnectError(null)
+                  setConnectionProduct('books')
+                  setConnectionName('My Zoho Books')
                   setIsConnectModalOpen(true)
                 }}
                 className="w-full"
@@ -402,7 +459,7 @@ export const IntegrationsPage: React.FC = () => {
         <Modal
           isOpen={isConnectModalOpen}
           onClose={() => setIsConnectModalOpen(false)}
-          title="Connect Zoho CRM Account"
+          title={`Connect Zoho ${connectionProduct === 'books' ? 'Books' : 'CRM'} Account`}
           description="Initiate official OAuth 2.0 authorization with Zoho. You will be redirected to Zoho Accounts to grant permissions."
           maxWidth="md"
         >
@@ -420,7 +477,7 @@ export const IntegrationsPage: React.FC = () => {
                 type="text"
                 value={connectionName}
                 onChange={(e) => setConnectionName(e.target.value)}
-                placeholder="e.g. Corporate Zoho CRM"
+                placeholder={`e.g. Corporate Zoho ${connectionProduct === 'books' ? 'Books' : 'CRM'}`}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
@@ -447,9 +504,19 @@ export const IntegrationsPage: React.FC = () => {
 
             <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 space-y-1">
               <div className="font-semibold text-slate-900">OAuth Permissions Requested:</div>
-              <div>&bull; ZohoCRM.modules.ALL (Contacts, Leads, Deals, Accounts)</div>
-              <div>&bull; ZohoCRM.settings.ALL (Organization metadata)</div>
-              <div>&bull; ZohoCRM.org.READ (Connection health and organization identity)</div>
+              {connectionProduct === 'books' ? (
+                <>
+                  <div>&bull; ZohoBooks.settings.READ (Organization metadata)</div>
+                  <div>&bull; ZohoBooks module READ scopes only</div>
+                  <div className="text-slate-500 mt-1">No write, create, update, or delete permissions are requested.</div>
+                </>
+              ) : (
+                <>
+                  <div>&bull; ZohoCRM.modules.ALL (Contacts, Leads, Deals, Accounts)</div>
+                  <div>&bull; ZohoCRM.settings.ALL (Organization metadata)</div>
+                  <div>&bull; ZohoCRM.org.READ (Connection health and organization identity)</div>
+                </>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
@@ -472,6 +539,19 @@ export const IntegrationsPage: React.FC = () => {
               </Button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* Disconnect Confirmation Modal */}
+      {booksOrganizationsIntegration && (
+        <Modal
+          isOpen={!!booksOrganizationsIntegration}
+          onClose={() => setBooksOrganizationsIntegration(null)}
+          title={`Zoho Books Organizations — ${booksOrganizationsIntegration.connection_name}`}
+          description="View and select the Zoho Books organization used for future Books data access."
+          maxWidth="lg"
+        >
+          <ZohoBooksOrganizations integration={booksOrganizationsIntegration} />
         </Modal>
       )}
 

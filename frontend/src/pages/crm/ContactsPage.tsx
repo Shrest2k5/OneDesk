@@ -16,7 +16,7 @@ import { QuickSyncModal } from '@/components/sync/QuickSyncModal'
 
 export const ContactsPage: React.FC = () => {
   const { activeIntegrationId, activeIntegration, hasActiveConnection } = useIntegrations()
-  const isZohoSelected = activeIntegration?.provider === 'zoho' && activeIntegration.status === 'active'
+  const isZohoSelected = activeIntegration?.provider === 'zoho' && activeIntegration.product === 'crm' && activeIntegration.status === 'active'
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(25)
   const [searchQuery, setSearchQuery] = useState('')

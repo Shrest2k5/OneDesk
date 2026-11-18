@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, AlertCircle, Loader2, ArrowRight, ShieldCheck, Layers } from 'lucide-react'
 import { Button } from '@/components/common/Button'
@@ -11,12 +11,14 @@ import type { Integration } from '@/types/integration'
 export const ZohoCallbackPage: React.FC = () => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const { refetchIntegrations, setActiveIntegrationId } = useIntegrations()
 
   const callbackStatus = searchParams.get('status')
   const integrationId = searchParams.get('integration_id')
+  const isBooks = location.pathname.includes('/books/')
 
   const [isLoading, setIsLoading] = useState(true)
   const [integration, setIntegration] = useState<Integration | null>(null)
@@ -80,7 +82,7 @@ export const ZohoCallbackPage: React.FC = () => {
         <div className="inline-flex w-12 h-12 rounded-xl bg-indigo-600 items-center justify-center text-white shadow-md shadow-indigo-200 mb-4">
           <Layers className="w-6 h-6" />
         </div>
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Zoho OAuth Authorization</h2>
+        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Zoho {isBooks ? 'Books' : 'CRM'} OAuth Authorization</h2>
         <p className="text-xs text-slate-500 mt-1">OneDesk Unified ERP Integration Handshake</p>
       </div>
 
@@ -104,7 +106,7 @@ export const ZohoCallbackPage: React.FC = () => {
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Zoho CRM connected successfully!</h3>
+                <h3 className="text-lg font-bold text-slate-900">Zoho {isBooks ? 'Books' : 'CRM'} connected successfully!</h3>
                 <p className="text-xs text-slate-500 mt-1">
                   {integration ? (
                     <>Connection established for <span className="font-semibold text-slate-800">{integration.connection_name}</span>.</>
@@ -126,11 +128,11 @@ export const ZohoCallbackPage: React.FC = () => {
                 <Button
                   variant="primary"
                   size="md"
-                  onClick={() => navigate('/crm/contacts')}
+                  onClick={() => navigate(isBooks ? '/integrations' : '/crm/contacts')}
                   rightIcon={<ArrowRight className="w-4 h-4" />}
                   className="w-full sm:w-auto"
                 >
-                  Explore CRM Contacts
+                  {isBooks ? 'View Integrations' : 'Explore CRM Contacts'}
                 </Button>
               </div>
             </div>

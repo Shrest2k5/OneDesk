@@ -53,6 +53,12 @@ class ZohoTokenManager:
 
         return "https://accounts.zoho.com"
 
+    @staticmethod
+    def _credentials_for(integration: Integration) -> tuple[str, str]:
+        if integration.product == "books":
+            return settings.ZOHO_BOOKS_CLIENT_ID, settings.ZOHO_BOOKS_CLIENT_SECRET
+        return settings.ZOHO_CLIENT_ID, settings.ZOHO_CLIENT_SECRET
+
     def is_token_expired(self, integration: Integration, safety_buffer_seconds: int = 300) -> bool:
         """
         Check if the access token is expired or close to expiring (default 5-minute buffer).
@@ -98,8 +104,8 @@ class ZohoTokenManager:
 
             data = {
                 "grant_type": "refresh_token",
-                "client_id": settings.ZOHO_CLIENT_ID,
-                "client_secret": settings.ZOHO_CLIENT_SECRET,
+                "client_id": self._credentials_for(integration)[0],
+                "client_secret": self._credentials_for(integration)[1],
                 "refresh_token": refresh_token,
             }
 

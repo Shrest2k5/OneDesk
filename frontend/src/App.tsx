@@ -43,6 +43,7 @@ export const App: React.FC = () => {
 
             {/* OAuth Callback Handshake */}
             <Route path="/integrations/zoho/callback" element={<ZohoCallbackPage />} />
+            <Route path="/integrations/zoho/books/callback" element={<ZohoCallbackPage />} />
 
             {/* Protected SaaS Application Routes */}
             <Route element={<ProtectedRoute />}>

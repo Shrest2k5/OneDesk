@@ -23,6 +23,10 @@ class ZohoIntegration(BaseERPIntegration):
     def provider_name(self) -> str:
         return "zoho"
 
+    @property
+    def product_name(self) -> str:
+        return "crm"
+
     def generate_authorization_url(
         self,
         user_id: uuid.UUID,
@@ -85,6 +89,7 @@ class ZohoIntegration(BaseERPIntegration):
         integration = await repo.create_or_update(
             user_id=user_id,
             provider=self.provider_name,
+            product=self.product_name,
             connection_name=connection_name,
             access_token=access_token,
             refresh_token=refresh_token,

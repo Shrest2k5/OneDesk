@@ -4,12 +4,14 @@ from typing import Any, Dict, List, Optional
 import uuid
 from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.logging import logger
 from app.integrations.registry import integration_registry
 from app.models.integration import Integration
 from app.models.sync_history import SyncHistory
 from app.repositories.integration_repository import IntegrationRepository
+from app.repositories.integration_record_repository import IntegrationRecordRepository
 
 
 class SyncService:
@@ -21,6 +23,7 @@ class SyncService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.integration_repo = IntegrationRepository(session)
+        self.record_repo = IntegrationRecordRepository(session)
 
     async def get_last_successful_sync(
         self,
@@ -34,6 +37,7 @@ class SyncService:
                 SyncHistory.integration_id == integration_id,
                 SyncHistory.resource_type == resource_type,
                 SyncHistory.status == "completed",
+                SyncHistory.successful_at.is_not(None),
             )
             .order_by(desc(SyncHistory.completed_at))
             .limit(1)
@@ -63,6 +67,9 @@ class SyncService:
         self,
         sync_id: uuid.UUID,
         records_count: int,
+        records_inserted: int = 0,
+        records_updated: int = 0,
+        records_failed: int = 0,
     ) -> SyncHistory:
         """Mark a sync job as completed with total records count."""
         query = select(SyncHistory).where(SyncHistory.id == sync_id)
@@ -71,7 +78,11 @@ class SyncService:
 
         sync_job.status = "completed"
         sync_job.records_processed = records_count
+        sync_job.records_inserted = records_inserted
+        sync_job.records_updated = records_updated
+        sync_job.records_failed = records_failed
         sync_job.completed_at = datetime.now(timezone.utc)
+        sync_job.successful_at = sync_job.completed_at if records_failed == 0 else None
 
         await self.session.commit()
         await self.session.refresh(sync_job)
@@ -81,6 +92,10 @@ class SyncService:
         self,
         sync_id: uuid.UUID,
         error_message: str,
+        records_processed: Optional[int] = None,
+        records_inserted: Optional[int] = None,
+        records_updated: Optional[int] = None,
+        records_failed: Optional[int] = None,
     ) -> SyncHistory:
         """Mark a sync job as failed with captured error details."""
         query = select(SyncHistory).where(SyncHistory.id == sync_id)
@@ -92,6 +107,14 @@ class SyncService:
         sync_job.status = "failed"
         sync_job.error_message = error_message
         sync_job.completed_at = datetime.now(timezone.utc)
+        if records_processed is not None:
+            sync_job.records_processed = records_processed
+        if records_inserted is not None:
+            sync_job.records_inserted = records_inserted
+        if records_updated is not None:
+            sync_job.records_updated = records_updated
+        if records_failed is not None:
+            sync_job.records_failed = records_failed
 
         await self.session.commit()
         await self.session.refresh(sync_job)
@@ -142,7 +165,7 @@ class SyncService:
         Execute full or incremental synchronization of an ERP resource type
         (contacts, leads, deals, accounts) across all available pages.
         """
-        provider = integration_registry.get(integration.provider)
+        provider = integration_registry.get(integration.provider, integration.product)
         if not provider:
             raise ValueError(f"Unsupported ERP provider '{integration.provider}'")
 
@@ -166,8 +189,12 @@ class SyncService:
                 modified_since = last_sync.completed_at.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         total_records = 0
+        total_inserted = 0
+        total_updated = 0
+        total_failed = 0
         page = 1
         per_page = 200
+        sync_job_id = sync_job.id
 
         try:
             while True:
@@ -183,6 +210,33 @@ class SyncService:
                 items = response.get("data", [])
                 total_records += len(items)
 
+                page_inserted = page_updated = page_failed = 0
+                for item in items:
+                    try:
+                        outcome = await self.record_repo.upsert(
+                            user_id=integration.user_id,
+                            integration_id=integration.id,
+                            provider=integration.provider,
+                            product=integration.product,
+                            external_organization_id=integration.external_account_id,
+                            resource_type=resource_type,
+                            payload=item,
+                        )
+                        if outcome == "inserted":
+                            page_inserted += 1
+                        else:
+                            page_updated += 1
+                    except (ValueError, TypeError, KeyError) as exc:
+                        page_failed += 1
+                        logger.warning("Skipping invalid %s record during sync: %s", resource_type, type(exc).__name__)
+
+                total_inserted += page_inserted
+                total_updated += page_updated
+                total_failed += page_failed
+                # Commit each page so records from completed pages survive a later
+                # provider failure, while the final successful_at remains unset.
+                await self.session.commit()
+
                 info = response.get("info", {})
                 more_records = info.get("more_records", False)
 
@@ -191,12 +245,26 @@ class SyncService:
 
                 page += 1
 
-            return await self.complete_sync_record(sync_job.id, total_records)
+            return await self.complete_sync_record(
+                sync_job.id, total_records, total_inserted, total_updated, total_failed
+            )
 
         except Exception as exc:
             logger.error(f"Sync failed for integration {integration.id} [{resource_type}]: {exc}")
+            # A failed page-level database operation must not poison the session
+            # used to record the failed execution. Provider/API errors leave the
+            # transaction usable; only roll back actual database exceptions.
+            if isinstance(exc, SQLAlchemyError):
+                await self.session.rollback()
             if fail_on_error:
-                await self.fail_sync_record(sync_job.id, str(exc))
+                await self.fail_sync_record(
+                    sync_job_id,
+                    str(exc),
+                    total_records,
+                    total_inserted,
+                    total_updated,
+                    total_failed,
+                )
             raise
 
     async def _get_sync_record(self, sync_id: uuid.UUID) -> Optional[SyncHistory]:

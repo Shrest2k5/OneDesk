@@ -15,11 +15,13 @@ router = APIRouter(prefix="/integrations", tags=["Integration Management"])
 class IntegrationResponse(BaseModel):
     id: uuid.UUID
     provider: str
+    product: str
     connection_name: str
     external_account_id: Optional[str] = None
     status: str
     api_domain: Optional[str] = None
     token_expires_at: Optional[datetime] = None
+    selected_organization_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -91,6 +93,9 @@ class SyncHistoryResponse(BaseModel):
     resource_type: str
     status: str
     records_processed: int
+    records_inserted: int
+    records_updated: int
+    records_failed: int
     started_at: datetime
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None

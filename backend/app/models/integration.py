@@ -35,11 +35,25 @@ class Integration(Base, TimestampMixin):
         index=True,
         comment="ERP provider identifier, e.g. 'zoho', 'odoo', 'sap'",
     )
+    product: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="crm",
+        server_default="crm",
+        index=True,
+        comment="Product within the provider, e.g. 'crm' or 'books'",
+    )
     external_account_id: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True,
         index=True,
         comment="External account or organization identifier from the provider",
+    )
+    selected_organization_id: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+        comment="Selected external organization ID for multi-organization products such as Zoho Books",
     )
     connection_name: Mapped[str] = mapped_column(
         String(100),
@@ -88,7 +102,7 @@ class Integration(Base, TimestampMixin):
     )
 
     __table_args__ = (
-        UniqueConstraint("user_id", "provider", "external_account_id", name="uq_user_provider_account"),
+        UniqueConstraint("user_id", "provider", "product", "external_account_id", name="uq_user_provider_product_account"),
     )
 
     def __repr__(self) -> str:

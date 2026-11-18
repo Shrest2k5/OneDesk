@@ -44,6 +44,17 @@ class Settings(BaseSettings):
     ZOHO_SCOPES: str = "ZohoCRM.modules.ALL,ZohoCRM.settings.ALL,ZohoCRM.org.READ"
     ZOHO_DEFAULT_ACCOUNTS_URL: str = "https://accounts.zoho.com"
 
+    # Zoho Books OAuth 2.0 credentials. Keep these separate from CRM because
+    # Zoho OAuth clients and redirect URIs may be registered independently.
+    ZOHO_BOOKS_CLIENT_ID: str = "zoho_books_client_id_placeholder"
+    ZOHO_BOOKS_CLIENT_SECRET: str = "zoho_books_client_secret_placeholder"
+    ZOHO_BOOKS_REDIRECT_URI: str = "http://localhost:8000/api/v1/integrations/zoho/books/callback"
+    ZOHO_BOOKS_SCOPES: str = (
+        "ZohoBooks.settings.READ,ZohoBooks.contacts.READ,ZohoBooks.invoices.READ,"
+        "ZohoBooks.bills.READ,ZohoBooks.expenses.READ,ZohoBooks.customerpayments.READ,"
+        "ZohoBooks.vendorpayments.READ,ZohoBooks.estimates.READ,ZohoBooks.creditnotes.READ"
+    )
+
     # Public application URL used after a provider has completed an OAuth callback.
     # This is deliberately separate from ZOHO_REDIRECT_URI: Zoho must always send
     # authorization codes to the backend callback, where they can be validated and

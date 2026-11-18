@@ -56,11 +56,19 @@ class ZohoOAuthClient:
         client_secret: Optional[str] = None,
         redirect_uri: Optional[str] = None,
         scopes: Optional[str] = None,
+        product: str = "crm",
     ) -> None:
-        self.client_id = client_id or settings.ZOHO_CLIENT_ID
-        self.client_secret = client_secret or settings.ZOHO_CLIENT_SECRET
-        self.redirect_uri = redirect_uri or settings.ZOHO_REDIRECT_URI
-        self.scopes = scopes or settings.ZOHO_SCOPES
+        self.product = product.lower().strip()
+        if self.product == "books":
+            self.client_id = client_id or settings.ZOHO_BOOKS_CLIENT_ID
+            self.client_secret = client_secret or settings.ZOHO_BOOKS_CLIENT_SECRET
+            self.redirect_uri = redirect_uri or settings.ZOHO_BOOKS_REDIRECT_URI
+            self.scopes = scopes or settings.ZOHO_BOOKS_SCOPES
+        else:
+            self.client_id = client_id or settings.ZOHO_CLIENT_ID
+            self.client_secret = client_secret or settings.ZOHO_CLIENT_SECRET
+            self.redirect_uri = redirect_uri or settings.ZOHO_REDIRECT_URI
+            self.scopes = scopes or settings.ZOHO_SCOPES
 
     @staticmethod
     def get_data_center_info(dc: Optional[str] = None) -> Dict[str, str]:
@@ -81,6 +89,7 @@ class ZohoOAuthClient:
         user_id: uuid.UUID,
         connection_name: str,
         data_center: str = "us",
+        product: Optional[str] = None,
     ) -> str:
         """
         Generate a cryptographically signed OAuth state JWT token.
@@ -91,6 +100,7 @@ class ZohoOAuthClient:
             "connection_name": connection_name,
             "dc": data_center.lower().strip(),
             "type": "zoho_oauth_state",
+            "product": (product or self.product).lower().strip(),
             "nonce": uuid.uuid4().hex,
             "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
             "iat": datetime.now(timezone.utc),
@@ -110,6 +120,10 @@ class ZohoOAuthClient:
             )
             if payload.get("type") != "zoho_oauth_state":
                 raise ZohoOAuthError("Invalid OAuth state token type.")
+
+            state_product = str(payload.get("product", "crm")).lower().strip()
+            if state_product != self.product:
+                raise ZohoOAuthError("OAuth state does not match the requested Zoho product.")
 
             nonce = payload.get("nonce")
             if not nonce:
@@ -140,6 +154,7 @@ class ZohoOAuthClient:
         user_id: uuid.UUID,
         connection_name: str,
         data_center: Optional[str] = None,
+        product: Optional[str] = None,
     ) -> Dict[str, str]:
         """
         Build the official Zoho OAuth 2.0 authorization URL.
@@ -153,7 +168,10 @@ class ZohoOAuthClient:
                 resolved_dc = k
                 break
 
-        state = self.generate_state(user_id, connection_name, resolved_dc)
+        resolved_product = (product or self.product).lower().strip()
+        if resolved_product not in {"crm", "books"}:
+            raise ZohoOAuthError("Unsupported Zoho OAuth product.")
+        state = self.generate_state(user_id, connection_name, resolved_dc, resolved_product)
 
         params = {
             "scope": self.scopes,

@@ -40,7 +40,7 @@ services:
     container_name: onedesk_api
     restart: unless-stopped
     env_file:
-      - ./backend/.env
+      - ./.env
     depends_on:
       db:
         condition: service_healthy
@@ -65,7 +65,7 @@ services:
     container_name: onedesk_celery_worker
     restart: unless-stopped
     env_file:
-      - ./backend/.env
+      - ./.env
     depends_on:
       db:
         condition: service_healthy

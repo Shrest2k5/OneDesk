@@ -10,7 +10,6 @@ import {
   ExternalLink,
   Shield,
   Layers,
-  ArrowRight,
   Server,
   Globe,
 } from 'lucide-react'
@@ -37,6 +36,10 @@ const ZOHO_DATA_CENTERS = [
   { value: 'cn', label: 'China (.com.cn) — accounts.zoho.com.cn' },
 ]
 
+const defaultConnectionName = (product: 'crm' | 'books') => (
+  product === 'books' ? 'My Zoho Books' : 'My Zoho CRM'
+)
+
 export const IntegrationsPage: React.FC = () => {
   const queryClient = useQueryClient()
   const { integrations, isLoading, refetchIntegrations } = useIntegrations()
@@ -59,6 +62,18 @@ export const IntegrationsPage: React.FC = () => {
     loading: boolean
     error?: string
   } | null>(null)
+
+  const openConnectDialog = (product: 'crm' | 'books' = 'crm') => {
+    const previousDefault = defaultConnectionName(connectionProduct)
+    setConnectError(null)
+    setConnectionProduct(product)
+    setConnectionName((currentName) => (
+      !currentName.trim() || currentName === previousDefault
+        ? defaultConnectionName(product)
+        : currentName
+    ))
+    setIsConnectModalOpen(true)
+  }
 
   // Connect mutation
   const connectMutation = useMutation({
@@ -119,12 +134,7 @@ export const IntegrationsPage: React.FC = () => {
         <Button
           variant="primary"
           size="sm"
-          onClick={() => {
-            setConnectError(null)
-            setConnectionProduct('crm')
-            setConnectionName('My Zoho CRM')
-            setIsConnectModalOpen(true)
-          }}
+          onClick={() => openConnectDialog()}
           leftIcon={<Plus className="w-4 h-4" />}
         >
           Connect Zoho
@@ -153,12 +163,6 @@ export const IntegrationsPage: React.FC = () => {
               icon={Boxes}
               title="No ERP Accounts Connected"
               description="Authorize a Zoho CRM or Zoho Books account to connect it to OneDesk."
-              actionLabel="Connect Zoho"
-              onAction={() => {
-                setConnectionProduct('crm')
-                setConnectionName('My Zoho CRM')
-                setIsConnectModalOpen(true)
-              }}
             />
           </div>
         ) : (
@@ -327,21 +331,8 @@ export const IntegrationsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-slate-100">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setConnectError(null)
-                  setConnectionProduct('crm')
-                  setConnectionName('My Zoho CRM')
-                  setIsConnectModalOpen(true)
-                }}
-                className="w-full"
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-              >
-                Connect Account
-              </Button>
+            <div className="mt-6 pt-4 border-t border-slate-100 text-center text-[11px] text-slate-500">
+              Use the <span className="font-semibold text-slate-700">Connect Zoho</span> button above to choose CRM or Books.
             </div>
           </Card>
 
@@ -364,21 +355,8 @@ export const IntegrationsPage: React.FC = () => {
                 <div className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /><span>Credentials encrypted at rest</span></div>
               </div>
             </div>
-            <div className="mt-6 pt-4 border-t border-slate-100">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setConnectError(null)
-                  setConnectionProduct('books')
-                  setConnectionName('My Zoho Books')
-                  setIsConnectModalOpen(true)
-                }}
-                className="w-full"
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-              >
-                Connect Account
-              </Button>
+            <div className="mt-6 pt-4 border-t border-slate-100 text-center text-[11px] text-slate-500">
+              Use the <span className="font-semibold text-slate-700">Connect Zoho</span> button above to choose CRM or Books.
             </div>
           </Card>
 
@@ -470,6 +448,27 @@ export const IntegrationsPage: React.FC = () => {
                 <span>{connectError}</span>
               </div>
             )}
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Zoho Product</label>
+              <select
+                value={connectionProduct}
+                onChange={(e) => {
+                  const nextProduct = e.target.value as 'crm' | 'books'
+                  const currentDefault = defaultConnectionName(connectionProduct)
+                  setConnectionProduct(nextProduct)
+                  setConnectionName((currentName) => (
+                    !currentName.trim() || currentName === currentDefault
+                      ? defaultConnectionName(nextProduct)
+                      : currentName
+                  ))
+                }}
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="crm">Zoho CRM</option>
+                <option value="books">Zoho Books</option>
+              </select>
+            </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Connection Name</label>

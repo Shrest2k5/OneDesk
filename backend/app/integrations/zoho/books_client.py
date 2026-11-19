@@ -104,3 +104,77 @@ class ZohoBooksClient:
         if not isinstance(organizations, list):
             raise ZohoAPIError("Zoho Books organizations response has an invalid structure.")
         return [item for item in organizations if isinstance(item, dict)]
+
+    async def list_contacts_page(
+        self, organization_id: str, page: int = 1, per_page: int = 200,
+    ) -> Dict[str, Any]:
+        """Fetch one page of contacts for the explicitly selected organization."""
+        if not organization_id:
+            raise ValueError("A selected Books organization is required")
+        payload = await self._execute_request(
+            "GET",
+            "contacts",
+            params={"organization_id": organization_id, "page": page, "per_page": per_page},
+        )
+        contacts = payload.get("contacts", [])
+        if contacts is None:
+            contacts = []
+        if not isinstance(contacts, list) or not all(isinstance(item, dict) for item in contacts):
+            raise ZohoAPIError("Zoho Books contacts response has an invalid structure.")
+        page_context = payload.get("page_context", {})
+        if not isinstance(page_context, dict):
+            raise ZohoAPIError("Zoho Books contacts pagination has an invalid structure.")
+        return {"contacts": contacts, "page_context": page_context}
+
+    async def list_contacts(self, organization_id: str, page: int = 1, per_page: int = 200) -> Dict[str, Any]:
+        return await self.list_contacts_page(organization_id, page, per_page)
+
+    async def list_invoices_page(
+        self, organization_id: str, page: int = 1, per_page: int = 200,
+    ) -> Dict[str, Any]:
+        """Fetch one page of sales invoices for the explicitly selected organization."""
+        if not organization_id:
+            raise ValueError("A selected Books organization is required")
+        payload = await self._execute_request(
+            "GET",
+            "invoices",
+            params={"organization_id": organization_id, "page": page, "per_page": per_page},
+        )
+        invoices = payload.get("invoices", [])
+        if invoices is None:
+            invoices = []
+        if not isinstance(invoices, list) or not all(isinstance(item, dict) for item in invoices):
+            raise ZohoAPIError("Zoho Books invoices response has an invalid structure.")
+        page_context = payload.get("page_context", {})
+        if isinstance(page_context, list):
+            page_context = page_context[0] if page_context and isinstance(page_context[0], dict) else {}
+        if not isinstance(page_context, dict):
+            raise ZohoAPIError("Zoho Books invoice pagination has an invalid structure.")
+        return {"invoices": invoices, "page_context": page_context}
+
+    async def list_financial_page(
+        self, organization_id: str, endpoint: str, response_key: str,
+        page: int = 1, per_page: int = 200, start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        if not organization_id:
+            raise ValueError("A selected Books organization is required")
+        params: Dict[str, Any] = {"organization_id": organization_id, "page": page, "per_page": per_page}
+        if start_date:
+            params["date_start"] = start_date
+        if end_date:
+            params["date_end"] = end_date
+        payload = await self._execute_request("GET", endpoint, params=params)
+        items = payload.get(response_key, [])
+        if items is None:
+            items = []
+        if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+            raise ZohoAPIError(f"Zoho Books {endpoint} response has an invalid structure.")
+        context = payload.get("page_context", {})
+        if context is None:
+            context = {}
+        if isinstance(context, list):
+            context = context[0] if context and isinstance(context[0], dict) else {}
+        if not isinstance(context, dict):
+            raise ZohoAPIError(f"Zoho Books {endpoint} pagination has an invalid structure.")
+        return {"items": items, "page_context": context}

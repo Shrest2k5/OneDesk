@@ -13,6 +13,9 @@ import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { IntegrationsPage } from '@/pages/integrations/IntegrationsPage'
 import { ZohoCallbackPage } from '@/pages/integrations/ZohoCallbackPage'
 import { ContactsPage } from '@/pages/crm/ContactsPage'
+import { BooksContactsPage } from '@/pages/books/BooksContactsPage'
+import { BooksInvoicesPage } from '@/pages/books/BooksInvoicesPage'
+import { BooksTransactionsPage } from '@/pages/books/BooksTransactionsPage'
 import { LeadsPage } from '@/pages/crm/LeadsPage'
 import { DealsPage } from '@/pages/crm/DealsPage'
 import { AccountsPage } from '@/pages/crm/AccountsPage'
@@ -54,6 +57,9 @@ export const App: React.FC = () => {
                 <Route path="/crm/leads" element={<LeadsPage />} />
                 <Route path="/crm/deals" element={<DealsPage />} />
                 <Route path="/crm/accounts" element={<AccountsPage />} />
+                <Route path="/books/contacts" element={<BooksContactsPage />} />
+                <Route path="/books/invoices" element={<BooksInvoicesPage />} />
+                <Route path="/books/transactions" element={<BooksTransactionsPage />} />
                 <Route path="/sync" element={<SyncCenterPage />} />
                 <Route path="/activity" element={<ActivityPage />} />
                 <Route path="/settings" element={<SettingsPage />} />

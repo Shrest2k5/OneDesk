@@ -18,6 +18,9 @@ from app.models.user import User
 from app.models.books_organization import BooksOrganization
 from app.services.integration_service import IntegrationService
 from app.repositories.books_organization_repository import BooksOrganizationRepository
+from app.services.books_contacts_service import BooksContactsService
+from app.services.books_invoices_service import BooksInvoicesService
+from app.services.books_transactions_service import BooksTransactionsService
 
 router = APIRouter(prefix="/integrations/zoho/books", tags=["Zoho Books Integration"])
 
@@ -51,6 +54,41 @@ class BooksOrganizationResponse(BaseModel):
     selected: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class BooksContactsResponse(BaseModel):
+    data: List[dict]
+    pagination: dict
+    sync: dict
+
+
+class BooksContactStatsResponse(BaseModel):
+    total: int
+    customers: int
+    vendors: int
+
+
+class BooksInvoicesResponse(BaseModel):
+    data: List[dict]
+    pagination: dict
+    sync: dict
+
+
+class BooksInvoiceStatsResponse(BaseModel):
+    total: int
+    outstanding: int
+    draft: int
+    sent: int
+    overdue: int
+    paid: int
+    partially_paid: int
+    total_amount: str
+    total_outstanding: str
+
+class BooksTransactionsResponse(BaseModel):
+    data: List[dict]
+    pagination: dict
+    sync: dict
 
 
 def _organization_response(org: BooksOrganization, selected_id: Optional[str]) -> BooksOrganizationResponse:
@@ -168,6 +206,124 @@ async def get_selected_books_organization(
     if not organization:
         return None
     return _organization_response(organization, integration.selected_organization_id)
+
+
+async def _books_contacts_service(integration_id: uuid.UUID, current_user: User, session: AsyncSession) -> BooksContactsService:
+    integration = await IntegrationService(session).resolve_books_integration(current_user.id, integration_id)
+    return BooksContactsService(session, integration)
+
+
+@router.get("/{integration_id}/contacts", response_model=BooksContactsResponse)
+async def list_books_contacts(
+    integration_id: uuid.UUID,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(25, ge=1, le=200),
+    contact_type: Optional[str] = Query(None, pattern="^(customer|vendor)$"),
+    search: Optional[str] = Query(None, max_length=200),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = await _books_contacts_service(integration_id, current_user, session)
+    result = await service.list_local(page, per_page, contact_type, search)
+    result["sync"] = await service.status()
+    return result
+
+
+@router.get("/{integration_id}/contacts/stats", response_model=BooksContactStatsResponse)
+async def books_contact_stats(
+    integration_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    return await (await _books_contacts_service(integration_id, current_user, session)).stats()
+
+
+@router.post("/{integration_id}/contacts/refresh", response_model=dict, status_code=status.HTTP_200_OK)
+async def refresh_books_contacts(
+    integration_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    job = await (await _books_contacts_service(integration_id, current_user, session)).synchronize()
+    return {"status": job.status, "sync_id": str(job.id), "records_processed": job.records_processed, "records_inserted": job.records_inserted, "records_updated": job.records_updated, "records_failed": job.records_failed, "last_successful_sync": job.successful_at, "error": job.error_message}
+
+
+async def _books_invoices_service(integration_id: uuid.UUID, current_user: User, session: AsyncSession) -> BooksInvoicesService:
+    integration = await IntegrationService(session).resolve_books_integration(current_user.id, integration_id)
+    return BooksInvoicesService(session, integration)
+
+
+@router.get("/{integration_id}/invoices", response_model=BooksInvoicesResponse)
+async def list_books_invoices(
+    integration_id: uuid.UUID,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(25, ge=1, le=200),
+    search: Optional[str] = Query(None, max_length=200),
+    invoice_status: Optional[str] = Query(None, max_length=50),
+    customer_id: Optional[str] = Query(None, max_length=100),
+    sort_by: str = Query("invoice_date", pattern="^(invoice_date|total)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = await _books_invoices_service(integration_id, current_user, session)
+    result = await service.list_local(page, per_page, search, invoice_status, customer_id, sort_by, sort_order)
+    result["sync"] = await service.sync_status()
+    return result
+
+
+@router.get("/{integration_id}/invoices/stats", response_model=BooksInvoiceStatsResponse)
+async def books_invoice_stats(
+    integration_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    return await (await _books_invoices_service(integration_id, current_user, session)).stats()
+
+
+@router.post("/{integration_id}/invoices/refresh", response_model=dict, status_code=status.HTTP_200_OK)
+async def refresh_books_invoices(
+    integration_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    job = await (await _books_invoices_service(integration_id, current_user, session)).synchronize()
+    return {"status": job.status, "sync_id": str(job.id), "records_processed": job.records_processed, "records_inserted": job.records_inserted, "records_updated": job.records_updated, "records_failed": job.records_failed, "last_successful_sync": job.successful_at, "error": job.error_message}
+
+
+async def _books_transactions_service(integration_id: uuid.UUID, current_user: User, session: AsyncSession) -> BooksTransactionsService:
+    integration = await IntegrationService(session).resolve_books_integration(current_user.id, integration_id)
+    return BooksTransactionsService(session, integration)
+
+
+@router.get("/{integration_id}/transactions", response_model=BooksTransactionsResponse)
+async def list_books_transactions(
+    integration_id: uuid.UUID, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=200),
+    start_date: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"), end_date: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    transaction_type: Optional[str] = Query(None, max_length=50), search: Optional[str] = Query(None, max_length=200),
+    current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db),
+):
+    service = await _books_transactions_service(integration_id, current_user, session)
+    result = await service.list_local(page, page_size, start_date, end_date, transaction_type, search)
+    result["sync"] = await service.status()
+    return result
+
+
+@router.get("/{integration_id}/transactions/stats")
+async def books_transactions_stats(
+    integration_id: uuid.UUID, start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db),
+):
+    return await (await _books_transactions_service(integration_id, current_user, session)).stats(start_date, end_date)
+
+
+@router.post("/{integration_id}/transactions/refresh", response_model=dict, status_code=status.HTTP_200_OK)
+async def refresh_books_transactions(
+    integration_id: uuid.UUID, start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db),
+):
+    job = await (await _books_transactions_service(integration_id, current_user, session)).synchronize(start_date, end_date)
+    return {"status": job.status, "sync_id": str(job.id), "records_processed": job.records_processed, "records_inserted": job.records_inserted, "records_updated": job.records_updated, "records_failed": job.records_failed, "last_successful_sync": job.successful_at, "error": job.error_message}
 
 
 @router.put("/{integration_id}/organizations/{external_organization_id}/select", response_model=BooksOrganizationResponse)

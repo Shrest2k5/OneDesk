@@ -6,6 +6,7 @@ import type {
   ZohoConnectResponse,
   BooksOrganization,
 } from '@/types/integration'
+import type { BooksContactStats, BooksContactsResponse, BooksInvoiceStats, BooksTransactionsResponse, BooksTransactionStats } from '@/types/books'
 
 export const integrationsApi = {
   list: async (): Promise<Integration[]> => {
@@ -55,5 +56,43 @@ export const integrationsApi = {
     )
     return response.data
   },
+
+  selectedBooksOrganization: async (integrationId: string): Promise<BooksOrganization | null> => {
+    const response = await apiClient.get<BooksOrganization | null>(`/integrations/zoho/books/${integrationId}/organizations/selected`)
+    return response.data
+  },
+
+  listBooksContacts: async (integrationId: string, params: { page: number; per_page: number; contact_type?: string; search?: string }): Promise<BooksContactsResponse> => {
+    const response = await apiClient.get<BooksContactsResponse>(`/integrations/zoho/books/${integrationId}/contacts`, { params })
+    return response.data
+  },
+
+  booksContactStats: async (integrationId: string): Promise<BooksContactStats> => {
+    const response = await apiClient.get<BooksContactStats>(`/integrations/zoho/books/${integrationId}/contacts/stats`)
+    return response.data
+  },
+
+  refreshBooksContacts: async (integrationId: string): Promise<Record<string, unknown>> => {
+    const response = await apiClient.post<Record<string, unknown>>(`/integrations/zoho/books/${integrationId}/contacts/refresh`)
+    return response.data
+  },
+
+  listBooksInvoices: async (integrationId: string, params: Record<string, string | number | undefined>) => {
+    const response = await apiClient.get(`/integrations/zoho/books/${integrationId}/invoices`, { params })
+    return response.data
+  },
+
+  booksInvoiceStats: async (integrationId: string): Promise<BooksInvoiceStats> => {
+    const response = await apiClient.get<BooksInvoiceStats>(`/integrations/zoho/books/${integrationId}/invoices/stats`)
+    return response.data
+  },
+
+  refreshBooksInvoices: async (integrationId: string): Promise<Record<string, unknown>> => {
+    const response = await apiClient.post<Record<string, unknown>>(`/integrations/zoho/books/${integrationId}/invoices/refresh`)
+    return response.data
+  },
+  listBooksTransactions: async (integrationId: string, params: Record<string, string | number | undefined>): Promise<BooksTransactionsResponse> => (await apiClient.get<BooksTransactionsResponse>(`/integrations/zoho/books/${integrationId}/transactions`, { params })).data,
+  booksTransactionStats: async (integrationId: string, params?: Record<string, string | undefined>): Promise<BooksTransactionStats> => (await apiClient.get<BooksTransactionStats>(`/integrations/zoho/books/${integrationId}/transactions/stats`, { params })).data,
+  refreshBooksTransactions: async (integrationId: string, params?: Record<string, string | undefined>): Promise<Record<string, unknown>> => (await apiClient.post<Record<string, unknown>>(`/integrations/zoho/books/${integrationId}/transactions/refresh`, undefined, { params })).data,
 }
 

@@ -82,6 +82,10 @@ class ZohoBooksClient:
         if response.status_code >= 400:
             details = sanitize_data(payload if isinstance(payload, dict) else {"raw": payload})
             message = details.get("message", f"HTTP {response.status_code}") if isinstance(details, dict) else "API error"
+            logger.warning(
+                "Zoho Books API failure: method=%s endpoint=%s status=%s message=%s",
+                method, url, response.status_code, message,
+            )
             raise ZohoAPIError(
                 f"Zoho Books API error: {message}",
                 status_code=response.status_code,

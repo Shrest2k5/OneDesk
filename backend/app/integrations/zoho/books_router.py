@@ -27,6 +27,7 @@ router = APIRouter(prefix="/integrations/zoho/books", tags=["Zoho Books Integrat
 
 class ZohoBooksConnectRequest(BaseModel):
     connection_name: str = Field(default="My Zoho Books", min_length=1, max_length=100)
+    integration_id: Optional[uuid.UUID] = None
     data_center: Optional[str] = Field(
         default=None,
         pattern="^(us|eu|in|cn|au|ca|jp)$",
@@ -127,11 +128,15 @@ async def _list_books_organizations(
 async def initiate_zoho_books_connect(
     request: ZohoBooksConnectRequest,
     current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
 ):
+    if request.integration_id:
+        await IntegrationService(session).resolve_books_integration(current_user.id, request.integration_id)
     auth_data = zoho_books_integration.generate_authorization_url(
         user_id=current_user.id,
         connection_name=request.connection_name,
         data_center=request.data_center,
+        integration_id=request.integration_id,
     )
     return ZohoBooksConnectResponse(
         authorization_url=auth_data["authorization_url"],
@@ -320,8 +325,17 @@ async def books_transactions_stats(
 @router.post("/{integration_id}/transactions/refresh", response_model=dict, status_code=status.HTTP_200_OK)
 async def refresh_books_transactions(
     integration_id: uuid.UUID, start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None),
+    async_mode: bool = Query(False),
     current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db),
 ):
+    if async_mode:
+        from app.workers.sync_worker import sync_books_transactions_task
+        service = await _books_transactions_service(integration_id, current_user, session)
+        current = await service.status()
+        if current["status"] == "in_progress":
+            return current
+        task = sync_books_transactions_task.delay(str(integration_id), start_date, end_date)
+        return {"status": "queued", "task_id": task.id, "resource_type": "financial_transactions", "sync_id": current.get("sync_id")}
     job = await (await _books_transactions_service(integration_id, current_user, session)).synchronize(start_date, end_date)
     return {"status": job.status, "sync_id": str(job.id), "records_processed": job.records_processed, "records_inserted": job.records_inserted, "records_updated": job.records_updated, "records_failed": job.records_failed, "last_successful_sync": job.successful_at, "error": job.error_message}
 

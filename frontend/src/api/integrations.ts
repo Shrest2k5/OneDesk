@@ -93,6 +93,6 @@ export const integrationsApi = {
   },
   listBooksTransactions: async (integrationId: string, params: Record<string, string | number | undefined>): Promise<BooksTransactionsResponse> => (await apiClient.get<BooksTransactionsResponse>(`/integrations/zoho/books/${integrationId}/transactions`, { params })).data,
   booksTransactionStats: async (integrationId: string, params?: Record<string, string | undefined>): Promise<BooksTransactionStats> => (await apiClient.get<BooksTransactionStats>(`/integrations/zoho/books/${integrationId}/transactions/stats`, { params })).data,
-  refreshBooksTransactions: async (integrationId: string, params?: Record<string, string | undefined>): Promise<Record<string, unknown>> => (await apiClient.post<Record<string, unknown>>(`/integrations/zoho/books/${integrationId}/transactions/refresh`, undefined, { params })).data,
+  refreshBooksTransactions: async (integrationId: string, params?: Record<string, string | undefined>): Promise<Record<string, unknown>> => (await apiClient.post<Record<string, unknown>>(`/integrations/zoho/books/${integrationId}/transactions/refresh`, undefined, { params: { ...params, async_mode: 'true' } })).data,
 }
 

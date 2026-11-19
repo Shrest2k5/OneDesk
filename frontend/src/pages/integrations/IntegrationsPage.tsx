@@ -95,6 +95,21 @@ export const IntegrationsPage: React.FC = () => {
     },
   })
 
+  const reauthorizeBooksMutation = useMutation({
+    mutationFn: (integration: Integration) => integrationsApi.initiateZohoBooksConnect({
+      connection_name: integration.connection_name,
+      integration_id: integration.id,
+      data_center: integration.api_domain?.includes('.eu') ? 'eu'
+        : integration.api_domain?.includes('.in') ? 'in'
+          : integration.api_domain?.includes('.com.au') ? 'au'
+            : integration.api_domain?.includes('.ca') ? 'ca'
+              : integration.api_domain?.includes('.jp') ? 'jp'
+                : integration.api_domain?.includes('.com.cn') ? 'cn' : 'us',
+    }),
+    onSuccess: (data) => { window.location.href = data.authorization_url },
+    onError: (err: any) => setConnectError(err.message || 'Failed to start Books reauthorization.'),
+  })
+
   // Disconnect mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => integrationsApi.delete(id),
@@ -219,9 +234,19 @@ export const IntegrationsPage: React.FC = () => {
                           Details
                         </Button>
                         {item.product === 'books' && (
-                          <Button variant="ghost" size="sm" onClick={() => setBooksOrganizationsIntegration(item)}>
-                            Organizations
-                          </Button>
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => setBooksOrganizationsIntegration(item)}>
+                              Organizations
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => reauthorizeBooksMutation.mutate(item)}
+                              isLoading={reauthorizeBooksMutation.isPending && reauthorizeBooksMutation.variables?.id === item.id}
+                            >
+                              Reauthorize
+                            </Button>
+                          </>
                         )}
                         <Button
                           variant="ghost"

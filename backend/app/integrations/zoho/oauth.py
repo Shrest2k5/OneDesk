@@ -90,6 +90,7 @@ class ZohoOAuthClient:
         connection_name: str,
         data_center: str = "us",
         product: Optional[str] = None,
+        integration_id: Optional[uuid.UUID] = None,
     ) -> str:
         """
         Generate a cryptographically signed OAuth state JWT token.
@@ -105,6 +106,8 @@ class ZohoOAuthClient:
             "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
             "iat": datetime.now(timezone.utc),
         }
+        if integration_id is not None:
+            payload["integration_id"] = str(integration_id)
         return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
     def validate_state(self, state: str) -> Dict[str, Any]:
@@ -155,6 +158,7 @@ class ZohoOAuthClient:
         connection_name: str,
         data_center: Optional[str] = None,
         product: Optional[str] = None,
+        integration_id: Optional[uuid.UUID] = None,
     ) -> Dict[str, str]:
         """
         Build the official Zoho OAuth 2.0 authorization URL.
@@ -171,7 +175,7 @@ class ZohoOAuthClient:
         resolved_product = (product or self.product).lower().strip()
         if resolved_product not in {"crm", "books"}:
             raise ZohoOAuthError("Unsupported Zoho OAuth product.")
-        state = self.generate_state(user_id, connection_name, resolved_dc, resolved_product)
+        state = self.generate_state(user_id, connection_name, resolved_dc, resolved_product, integration_id)
 
         params = {
             "scope": self.scopes,

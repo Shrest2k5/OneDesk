@@ -78,6 +78,39 @@ async def test_books_callback_exchanges_and_encrypts_tokens(db_session: AsyncSes
 
 
 @pytest.mark.asyncio
+async def test_books_reauthorization_updates_same_integration_and_preserves_org(db_session: AsyncSession):
+    user = User(
+        name="Books Reauth User",
+        email=f"books_reauth_{uuid.uuid4().hex[:8]}@example.com",
+        hashed_password="unused",
+    )
+    db_session.add(user)
+    await db_session.flush()
+    existing = Integration(
+        user_id=user.id, provider="zoho", product="books", connection_name="Finance Books",
+        selected_organization_id="org-preserve", external_account_id=None,
+        access_token="old-access", refresh_token="old-refresh",
+        token_expires_at=datetime.now(timezone.utc) - timedelta(minutes=5),
+        api_domain="https://www.zohoapis.in", status="active",
+    )
+    db_session.add(existing)
+    await db_session.flush()
+    original_id = existing.id
+    integration = ZohoBooksIntegration()
+    state = integration.oauth_client.generate_state(
+        user.id, existing.connection_name, "in", "books", integration_id=existing.id
+    )
+    token_data = {"access_token": "new-access", "expires_in": 3600, "api_domain": "https://www.zohoapis.in"}
+    with patch.object(integration.oauth_client, "exchange_code", new_callable=AsyncMock, return_value=token_data):
+        updated = await integration.handle_oauth_callback("reauth-code", state, db_session)
+
+    assert updated.id == original_id
+    assert updated.access_token == "new-access"
+    assert updated.refresh_token == "old-refresh"
+    assert updated.selected_organization_id == "org-preserve"
+
+
+@pytest.mark.asyncio
 async def test_books_token_exchange_failure_is_safely_reported():
     client = ZohoOAuthClient(
         client_id="books-client",

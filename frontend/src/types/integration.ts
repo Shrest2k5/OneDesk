@@ -18,6 +18,7 @@ export type ZohoDataCenter = 'us' | 'eu' | 'in' | 'cn' | 'au' | 'ca' | 'jp'
 export interface ZohoConnectRequest {
   connection_name: string
   data_center?: ZohoDataCenter
+  integration_id?: string
 }
 
 export interface ZohoConnectResponse {

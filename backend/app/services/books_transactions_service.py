@@ -59,18 +59,29 @@ class BooksTransactionsService:
         rid = payload.get(ids[kind]) or payload.get("id") or payload.get("receipt_id")
         if rid is None: raise ValueError(f"Zoho Books {kind} record is missing its ID")
         amount = payload.get("amount", payload.get("total", payload.get("amount_fcy", payload.get("amount_bcy"))))
+        refund_source_id = payload.get("payment_id") or payload.get("vendorpayment_id") or payload.get("creditnote_id")
         return {"id": str(rid), "transaction_id": str(rid), "transaction_type": kind,
                 "number": payload.get("payment_number") or payload.get("receipt_number") or payload.get("creditnote_number") or payload.get("reference_number"),
+                "payment_number": payload.get("payment_number"), "receipt_number": payload.get("receipt_number"),
                 "customer_id": payload.get("customer_id"), "customer_name": payload.get("customer_name"),
                 "vendor_id": payload.get("vendor_id"), "vendor_name": payload.get("vendor_name"),
                 "transaction_date": payload.get("date") or payload.get("transaction_date"),
                 "payment_mode": payload.get("payment_mode") or payload.get("refund_mode"),
-                "reference_number": payload.get("reference_number"), "currency_code": payload.get("currency_code"),
+                "reference_number": payload.get("reference_number"), "description": payload.get("description"),
+                "currency_id": payload.get("currency_id"), "currency_code": payload.get("currency_code"),
                 "currency_symbol": payload.get("currency_symbol"), "amount": amount,
                 "subtotal": payload.get("sub_total", payload.get("subtotal")), "tax_amount": payload.get("tax_total", payload.get("tax_amount")),
                 "status": payload.get("status"), "exchange_rate": payload.get("exchange_rate"),
-                "paid_through_account": payload.get("paid_through_account_name"), "from_account": payload.get("from_account_name"), "to_account": payload.get("to_account_name"),
-                "associated_invoices": payload.get("invoices") or payload.get("bills"), "line_items": payload.get("line_items", []), "raw_data": payload}
+                "paid_through_account_id": payload.get("paid_through_account_id"),
+                "paid_through_account": payload.get("paid_through_account_name"),
+                "from_account_id": payload.get("from_account_id"), "from_account": payload.get("from_account_name"),
+                "to_account_id": payload.get("to_account_id"), "to_account": payload.get("to_account_name"),
+                "associated_invoices": payload.get("invoices") or payload.get("bills"),
+                "line_items": payload.get("line_items", []),
+                "created_time": payload.get("created_time"), "last_modified_time": payload.get("last_modified_time"),
+                "refund_source_id": refund_source_id,
+                "refund_source_type": ("customer_payment" if payload.get("payment_id") else "vendor_payment" if payload.get("vendorpayment_id") else "credit_note" if payload.get("creditnote_id") else None),
+                "raw_data": payload}
 
     async def _rows(self):
         org = self._require_org()
@@ -173,4 +184,4 @@ class BooksTransactionsService:
     async def status(self) -> Dict[str, Any]:
         q = select(SyncHistory).where(SyncHistory.integration_id == self.integration.id, SyncHistory.resource_type == "financial_transactions").order_by(desc(SyncHistory.started_at)).limit(1)
         latest = (await self.session.execute(q)).scalar_one_or_none()
-        return {"status": latest.status if latest else "never_synced", "error": latest.error_message if latest and latest.status == "failed" else None, "last_successful_sync": latest.successful_at if latest and latest.successful_at else None}
+        return {"sync_id": str(latest.id) if latest else None, "status": latest.status if latest else "never_synced", "error": latest.error_message if latest and latest.status == "failed" else None, "last_successful_sync": latest.successful_at if latest and latest.successful_at else None}

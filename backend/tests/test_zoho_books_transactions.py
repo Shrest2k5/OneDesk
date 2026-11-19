@@ -15,6 +15,7 @@ from app.models.integration_record import IntegrationRecord
 from app.models.user import User
 from app.repositories.integration_record_repository import IntegrationRecordRepository
 from app.services.books_transactions_service import BooksTransactionsService
+from app.workers.sync_worker import sync_books_transactions_task
 
 
 async def setup_books(db_session: AsyncSession):
@@ -52,11 +53,30 @@ def test_normalization_supports_all_transaction_categories_and_decimal_inputs():
     assert BooksTransactionsService._decimal("10.10") == Decimal("10.10")
 
 
+def test_normalization_preserves_refund_source_and_financial_metadata():
+    result = BooksTransactionsService.normalize(
+        {
+            "payment_refund_id": "refund-1", "payment_id": "payment-1", "date": "2026-10-05",
+            "amount_fcy": "5.25", "currency_id": "cur-1", "currency_code": "USD",
+            "exchange_rate": "1.2", "from_account_id": "acct-1", "description": "Refund",
+        },
+        "customer_payment_refunds",
+    )
+    assert result["amount"] == "5.25"
+    assert result["currency_id"] == "cur-1"
+    assert result["refund_source_id"] == "payment-1"
+    assert result["refund_source_type"] == "customer_payment"
+
+
 def test_date_range_is_inclusive_and_invalid_ranges_are_rejected():
     assert BooksTransactionsService._in_range("2026-10-01", "2026-10-01", "2026-10-01")
     assert not BooksTransactionsService._in_range("2026-10-02", "2026-10-01", "2026-10-01")
     with pytest.raises(Exception):
         BooksTransactionsService._validate_range("2026-11-02", "2026-11-01")
+
+
+def test_books_financial_celery_task_is_registered():
+    assert sync_books_transactions_task.name == "app.workers.sync_worker.sync_books_transactions_task"
 
 
 @pytest.mark.asyncio

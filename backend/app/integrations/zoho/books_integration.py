@@ -39,6 +39,7 @@ class ZohoBooksIntegration(BaseERPIntegration):
             connection_name=connection_name,
             data_center=data_center,
             product=self.product_name,
+            integration_id=kwargs.get("integration_id"),
         )
 
     async def handle_oauth_callback(
@@ -63,22 +64,44 @@ class ZohoBooksIntegration(BaseERPIntegration):
         token_data = await self.oauth_client.exchange_code(code, dc_info["accounts"])
         access_token = token_data.get("access_token")
         refresh_token = token_data.get("refresh_token")
-        if not access_token or not refresh_token:
-            raise ZohoOAuthError("Zoho Books token response is missing required credentials.")
-
         expires_in = token_data.get("expires_in", 3600)
-        integration = await IntegrationRepository(session).create_or_update(
-            user_id=user_id,
-            provider=self.provider_name,
-            product=self.product_name,
-            connection_name=connection_name,
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_expires_at=datetime.now(timezone.utc) + timedelta(seconds=expires_in),
-            api_domain=token_data.get("api_domain") or dc_info["api"],
-            external_account_id=None,
-            status="active",
-        )
+        if not access_token:
+            raise ZohoOAuthError("Zoho Books token response is missing an access token.")
+
+        repository = IntegrationRepository(session)
+        integration_id_str = state_data.get("integration_id")
+        if integration_id_str:
+            try:
+                integration_id = uuid.UUID(str(integration_id_str))
+            except (ValueError, TypeError):
+                raise ZohoOAuthError("Invalid integration identifier in OAuth state.")
+            integration = await repository.get_by_user_and_id(user_id, integration_id)
+            if not integration or integration.provider != self.provider_name or integration.product != self.product_name:
+                raise ZohoOAuthError("OAuth state does not identify a valid Zoho Books integration.")
+            if not refresh_token and not integration.refresh_token:
+                raise ZohoOAuthError("Zoho Books reauthorization did not return a refresh token.")
+            integration.connection_name = connection_name
+            integration.access_token = access_token
+            if refresh_token:
+                integration.refresh_token = refresh_token
+            integration.token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+            integration.api_domain = token_data.get("api_domain") or dc_info["api"]
+            integration.status = "active"
+        else:
+            if not refresh_token:
+                raise ZohoOAuthError("Zoho Books token response is missing required credentials.")
+            integration = await repository.create_or_update(
+                user_id=user_id,
+                provider=self.provider_name,
+                product=self.product_name,
+                connection_name=connection_name,
+                access_token=access_token,
+                refresh_token=refresh_token,
+                token_expires_at=datetime.now(timezone.utc) + timedelta(seconds=expires_in),
+                api_domain=token_data.get("api_domain") or dc_info["api"],
+                external_account_id=None,
+                status="active",
+            )
         await session.commit()
         await session.refresh(integration)
         logger.info("Successfully connected Zoho Books integration: id=%s, user_id=%s", integration.id, user_id)

@@ -213,12 +213,17 @@ class SyncService:
                 page_inserted = page_updated = page_failed = 0
                 for item in items:
                     try:
+                        external_organization_id = (
+                            integration.selected_organization_id
+                            if integration.product == "books"
+                            else integration.external_account_id
+                        )
                         outcome = await self.record_repo.upsert(
                             user_id=integration.user_id,
                             integration_id=integration.id,
                             provider=integration.provider,
                             product=integration.product,
-                            external_organization_id=integration.external_account_id,
+                            external_organization_id=external_organization_id,
                             resource_type=resource_type,
                             payload=item,
                         )

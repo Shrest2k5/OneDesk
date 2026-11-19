@@ -108,6 +108,11 @@ class IntegrationService:
         self, user_id: uuid.UUID, integration_id: uuid.UUID
     ) -> Integration:
         integration = await self.get_user_integration(user_id, integration_id)
+        logger.info(
+            "Resolving Books integration: requested_id=%s resolved_id=%s user_id=%s provider=%s product=%s selected_organization_id=%s",
+            integration_id, integration.id, user_id, integration.provider,
+            integration.product, integration.selected_organization_id,
+        )
         if integration.provider != "zoho" or integration.product != "books":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

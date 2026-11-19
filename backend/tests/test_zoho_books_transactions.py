@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.zoho.books_client import ZohoBooksClient
+from app.integrations.zoho.books_integration import ZohoBooksIntegration
 from app.models.integration import Integration
 from app.models.integration_record import IntegrationRecord
 from app.models.user import User
@@ -56,6 +57,19 @@ def test_date_range_is_inclusive_and_invalid_ranges_are_rejected():
     assert not BooksTransactionsService._in_range("2026-10-02", "2026-10-01", "2026-10-01")
     with pytest.raises(Exception):
         BooksTransactionsService._validate_range("2026-11-02", "2026-11-01")
+
+
+@pytest.mark.asyncio
+async def test_shared_books_adapter_maps_contacts_and_pagination(db_session):
+    _, integration = await setup_books(db_session)
+    response = {"contacts": [{"contact_id": "c-1"}], "page_context": {"has_more_page": True}}
+    with patch("app.integrations.zoho.books_client.ZohoBooksClient") as client_type:
+        client_type.return_value.list_contacts_page = AsyncMock(return_value=response)
+        result = await ZohoBooksIntegration().fetch_records(
+            integration=integration, resource_type="contacts", page=2, per_page=200, session=db_session
+        )
+    assert result == {"data": response["contacts"], "info": {"more_records": True}}
+    client_type.return_value.list_contacts_page.assert_awaited_once_with("org-1", 2, 200)
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useCallback, useContext, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { integrationsApi } from '@/api/integrations'
 import type { Integration } from '@/types/integration'
@@ -12,13 +12,26 @@ interface IntegrationContextType {
   isLoading: boolean
   hasActiveConnection: boolean
   refetchIntegrations: () => Promise<unknown>
+  getIntegrationForProduct: (product: Integration['product']) => Integration | null
 }
 
 const IntegrationContext = createContext<IntegrationContextType | undefined>(undefined)
+const ACTIVE_INTEGRATION_STORAGE_KEY = 'onedesk_active_integration_id'
 
 export const IntegrationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth()
-  const [activeIntegrationId, setActiveIntegrationId] = useState<string | null>(null)
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
+  const [activeIntegrationId, setActiveIntegrationIdState] = useState<string | null>(() => (
+    localStorage.getItem(ACTIVE_INTEGRATION_STORAGE_KEY)
+  ))
+
+  const setActiveIntegrationId = useCallback((id: string | null) => {
+    setActiveIntegrationIdState(id)
+    if (id) {
+      localStorage.setItem(ACTIVE_INTEGRATION_STORAGE_KEY, id)
+    } else {
+      localStorage.removeItem(ACTIVE_INTEGRATION_STORAGE_KEY)
+    }
+  }, [])
 
   const {
     data: integrations = [],
@@ -33,6 +46,7 @@ export const IntegrationProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Set default active integration if available and none selected
   useEffect(() => {
+    if (isLoading) return
     const selectedStillExists = activeIntegrationId && integrations.some((integration) => integration.id === activeIntegrationId)
     if (integrations.length > 0 && !selectedStillExists) {
       const active = integrations.find((i) => i.status === 'active' && i.product === 'crm')
@@ -42,9 +56,25 @@ export const IntegrationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     } else if (integrations.length === 0) {
       setActiveIntegrationId(null)
     }
-  }, [integrations, activeIntegrationId])
+  }, [integrations, activeIntegrationId, isLoading, setActiveIntegrationId])
+
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      setActiveIntegrationId(null)
+    }
+  }, [isAuthenticated, isAuthLoading, setActiveIntegrationId])
 
   const activeIntegration = integrations.find((i) => i.id === activeIntegrationId) || null
+  const getIntegrationForProduct = useCallback((product: Integration['product']) => {
+    // The backend integration list is authoritative. A persisted ID is only
+    // accepted when it resolves to the requested product in that list.
+    if (activeIntegration?.product === product && activeIntegration.status === 'active') {
+      return activeIntegration
+    }
+    return integrations.find((integration) => (
+      integration.product === product && integration.status === 'active'
+    )) || null
+  }, [activeIntegration, integrations])
   const hasActiveConnection = integrations.some((i) => i.status === 'active')
 
   return (
@@ -57,6 +87,7 @@ export const IntegrationProvider: React.FC<{ children: React.ReactNode }> = ({ c
         isLoading,
         hasActiveConnection,
         refetchIntegrations,
+        getIntegrationForProduct,
       }}
     >
       {children}

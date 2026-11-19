@@ -14,7 +14,7 @@ from app.repositories.integration_repository import IntegrationRepository
 
 
 class ZohoBooksIntegration(BaseERPIntegration):
-    """Zoho Books OAuth connection lifecycle; Books API/data access comes later."""
+    """Zoho Books OAuth lifecycle and paginated record retrieval."""
 
     def __init__(self, oauth_client: Optional[ZohoOAuthClient] = None) -> None:
         self.oauth_client = oauth_client or ZohoOAuthClient(product="books")
@@ -102,7 +102,31 @@ class ZohoBooksIntegration(BaseERPIntegration):
         }
 
     async def fetch_records(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
-        raise NotImplementedError("Zoho Books data retrieval is not implemented yet.")
+        """Adapt the shared sync contract to the Books page response shape."""
+        integration = kwargs.get("integration")
+        resource_type = kwargs.get("resource_type")
+        page = int(kwargs.get("page", 1))
+        per_page = int(kwargs.get("per_page", 200))
+        session = kwargs.get("session")
+        if not integration or not integration.selected_organization_id:
+            raise ValueError("A selected Books organization is required")
+        if session is None:
+            raise ValueError("A database session is required for Books synchronization")
+
+        from app.integrations.zoho.books_client import ZohoBooksClient
+
+        client = ZohoBooksClient(integration, session)
+        if resource_type == "contacts":
+            response = await client.list_contacts_page(integration.selected_organization_id, page, per_page)
+            items = response["contacts"]
+        elif resource_type == "invoices":
+            response = await client.list_invoices_page(integration.selected_organization_id, page, per_page)
+            items = response["invoices"]
+        else:
+            raise ValueError(f"Books synchronization does not support resource '{resource_type}'")
+
+        page_context = response.get("page_context") or {}
+        return {"data": items, "info": {"more_records": bool(page_context.get("has_more_page", False))}}
 
     async def get_record(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         raise NotImplementedError("Zoho Books data retrieval is not implemented yet.")

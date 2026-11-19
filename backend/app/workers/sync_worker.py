@@ -14,8 +14,9 @@ celery_logger = get_task_logger(__name__)
 
 RESOURCE_TYPES_BY_PRODUCT = {
     "crm": ("contacts", "leads", "deals", "accounts"),
-    # Books API adapters are intentionally not implemented in this milestone.
-    "books": ("contacts", "invoices", "bills", "expenses", "items", "customer_payments", "vendor_payments", "estimates", "credit_notes"),
+    # Books financial transactions use the dedicated Books transactions service;
+    # the shared task supports the paginated resources implemented by the ERP adapter.
+    "books": ("contacts", "invoices"),
 }
 
 

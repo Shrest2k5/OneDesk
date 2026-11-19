@@ -12,17 +12,19 @@ const money = (value: unknown, currency?: string | null) => `${currency || ''} $
 const dateText = (value?: string | null) => value ? new Date(value).toLocaleDateString() : '—'
 
 export function BooksTransactionsPage() {
-  const { activeIntegration } = useIntegrations()
-  const id = activeIntegration?.id
+  const { getIntegrationForProduct, isLoading: integrationsLoading } = useIntegrations()
+  const booksIntegration = getIntegrationForProduct('books')
+  const id = booksIntegration?.id
   const [start, setStart] = useState(''); const [end, setEnd] = useState(''); const [kind, setKind] = useState(''); const [search, setSearch] = useState(''); const [page, setPage] = useState(1)
   const queryClient = useQueryClient()
-  const enabled = Boolean(id && activeIntegration?.product === 'books' && activeIntegration.status === 'active')
+  const enabled = Boolean(!integrationsLoading && id && booksIntegration?.provider === 'zoho')
   const params = { page, page_size: 25, start_date: start || undefined, end_date: end || undefined, transaction_type: kind || undefined, search: search || undefined }
-  const transactions = useQuery({ queryKey: ['books-transactions', id, params], queryFn: () => integrationsApi.listBooksTransactions(id!, params), enabled })
-  const stats = useQuery({ queryKey: ['books-transaction-stats', id, start, end], queryFn: () => integrationsApi.booksTransactionStats(id!, { start_date: start || undefined, end_date: end || undefined }), enabled })
+  const transactions = useQuery({ queryKey: ['books-transactions', id, params], queryFn: () => integrationsApi.listBooksTransactions(id!, params), enabled, refetchOnMount: 'always' })
+  const stats = useQuery({ queryKey: ['books-transaction-stats', id, start, end], queryFn: () => integrationsApi.booksTransactionStats(id!, { start_date: start || undefined, end_date: end || undefined }), enabled, refetchOnMount: 'always' })
   const refresh = useMutation({ mutationFn: () => integrationsApi.refreshBooksTransactions(id!, { start_date: start || undefined, end_date: end || undefined }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['books-transactions'] }); queryClient.invalidateQueries({ queryKey: ['books-transaction-stats'] }) } })
   const rows = transactions.data?.data || []
   return <div className="space-y-4">
+    {refresh.isError && <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700">Synchronization failed: {(refresh.error as Error).message}</div>}
     <div className="flex items-center justify-between"><div><h1 className="text-xl font-bold text-slate-900">Financial Transactions</h1><p className="text-xs text-slate-500">Zoho Books payments, receipts, refunds, and bank transactions</p></div><button className="flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs text-white disabled:opacity-50" disabled={refresh.isPending || !enabled} onClick={() => refresh.mutate()}><RefreshCw className="h-4 w-4" />Synchronize</button></div>
     {!enabled ? <Card><EmptyState icon={BadgeDollarSign} title="No Zoho Books Connection Selected" description="Select an active Zoho Books integration and organization first." /></Card> : <>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{[['All', stats.data?.total || 0], ['Customer payments', stats.data?.counts.customer_payments || 0], ['Vendor payments', stats.data?.counts.vendor_payments || 0], ['Bank transactions', stats.data?.counts.bank_transactions || 0]].map(([label, value]) => <Card key={String(label)}><div className="text-xs text-slate-500">{label}</div><div className="mt-1 text-xl font-bold">{value}</div></Card>)}</div>

@@ -58,6 +58,22 @@ async def test_existing_integrations_default_to_crm_and_selection_is_product_awa
 
 
 @pytest.mark.asyncio
+async def test_books_resolution_rejects_crm_id_and_accepts_books_id(db_session: AsyncSession):
+    user = await _user(db_session, "ProductAwareUser")
+    crm = await _integration(db_session, user, "crm")
+    books = await _integration(db_session, user, "books")
+    books.selected_organization_id = "books-org-1"
+    await db_session.commit()
+
+    service = IntegrationService(db_session)
+    with pytest.raises(Exception, match="not a ZOHO BOOKS connection"):
+        await service.resolve_books_integration(user.id, crm.id)
+    resolved = await service.resolve_books_integration(user.id, books.id)
+    assert resolved.id == books.id
+    assert resolved.selected_organization_id == "books-org-1"
+
+
+@pytest.mark.asyncio
 async def test_record_upsert_updates_without_duplicates(db_session: AsyncSession):
     user = await _user(db_session, "RecordUser")
     integration = await _integration(db_session, user)

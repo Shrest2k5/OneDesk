@@ -10,6 +10,7 @@ from app.models.integration import Integration
 from app.repositories.integration_repository import IntegrationRepository
 from app.services.sync_service import SyncService
 from app.services.books_transactions_service import BooksTransactionsService
+from app.services.books_purchases_service import BooksPurchasesService
 
 celery_logger = get_task_logger(__name__)
 
@@ -179,6 +180,41 @@ def sync_books_transactions_task(
         return asyncio.run(_run_books_transactions_sync(integration_id, start_date, end_date))
     except Exception as exc:
         celery_logger.error("Books financial sync failed for %s: %s", integration_id, type(exc).__name__)
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
+        raise
+
+
+async def _run_books_purchases_sync(integration_id_str: str, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
+    integration_id = uuid.UUID(integration_id_str)
+    await engine.dispose()
+    try:
+        async with async_session_factory() as session:
+            integration = await IntegrationRepository(session).get_by_id(integration_id)
+            if not integration or integration.provider != "zoho" or integration.product != "books":
+                raise ValueError(f"Integration {integration_id} is not a Zoho Books integration.")
+            if integration.status != "active":
+                raise ValueError(f"Integration {integration_id} is not active.")
+            resolved_integration_id = integration.id
+            job = await BooksPurchasesService(session, integration).synchronize(start_date, end_date)
+            result = {"sync_id": str(job.id), "integration_id": str(resolved_integration_id), "resource_type": "purchases", "status": job.status, "records_processed": job.records_processed, "records_inserted": job.records_inserted, "records_updated": job.records_updated, "records_failed": job.records_failed, "error": job.error_message}
+            if job.status == "failed":
+                # Permission failures are permanent until reauthorization or
+                # a Books role change; do not retry the same provider request.
+                if job.error_message and ("authorization failed (HTTP 401)" in job.error_message or "authorization failed (HTTP 403)" in job.error_message):
+                    return result
+                raise RuntimeError(job.error_message or "Books purchases synchronization failed")
+            return result
+    finally:
+        await engine.dispose()
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60, name="app.workers.sync_worker.sync_books_purchases_task")
+def sync_books_purchases_task(self, integration_id: str, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
+    try:
+        return asyncio.run(_run_books_purchases_sync(integration_id, start_date, end_date))
+    except Exception as exc:
+        celery_logger.error("Books purchases sync failed for %s: %s", integration_id, type(exc).__name__)
         if self.request.retries < self.max_retries:
             raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
         raise

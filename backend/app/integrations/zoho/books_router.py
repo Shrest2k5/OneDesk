@@ -21,6 +21,7 @@ from app.repositories.books_organization_repository import BooksOrganizationRepo
 from app.services.books_contacts_service import BooksContactsService
 from app.services.books_invoices_service import BooksInvoicesService
 from app.services.books_transactions_service import BooksTransactionsService
+from app.services.books_purchases_service import BooksPurchasesService
 
 router = APIRouter(prefix="/integrations/zoho/books", tags=["Zoho Books Integration"])
 
@@ -87,6 +88,11 @@ class BooksInvoiceStatsResponse(BaseModel):
     total_outstanding: str
 
 class BooksTransactionsResponse(BaseModel):
+    data: List[dict]
+    pagination: dict
+    sync: dict
+
+class BooksPurchasesResponse(BaseModel):
     data: List[dict]
     pagination: dict
     sync: dict
@@ -337,6 +343,47 @@ async def refresh_books_transactions(
         task = sync_books_transactions_task.delay(str(integration_id), start_date, end_date)
         return {"status": "queued", "task_id": task.id, "resource_type": "financial_transactions", "sync_id": current.get("sync_id")}
     job = await (await _books_transactions_service(integration_id, current_user, session)).synchronize(start_date, end_date)
+    return {"status": job.status, "sync_id": str(job.id), "records_processed": job.records_processed, "records_inserted": job.records_inserted, "records_updated": job.records_updated, "records_failed": job.records_failed, "last_successful_sync": job.successful_at, "error": job.error_message}
+
+
+async def _books_purchases_service(integration_id: uuid.UUID, current_user: User, session: AsyncSession) -> BooksPurchasesService:
+    integration = await IntegrationService(session).resolve_books_integration(current_user.id, integration_id)
+    return BooksPurchasesService(session, integration)
+
+
+@router.get("/{integration_id}/purchases/{resource_type}", response_model=BooksPurchasesResponse)
+async def list_books_purchases(
+    integration_id: uuid.UUID, resource_type: str,
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=200),
+    start_date: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"), end_date: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    search: Optional[str] = Query(None, max_length=200), record_status: Optional[str] = Query(None, max_length=50),
+    current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db),
+):
+    if resource_type not in {"bills", "vendor-credits", "vendor-payments"}:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Unknown purchases resource")
+    kind = resource_type.replace("-", "_")
+    service = await _books_purchases_service(integration_id, current_user, session)
+    result = await service.list_local(kind, page, page_size, start_date, end_date, search, record_status)
+    result["sync"] = await service.status()
+    return result
+
+
+@router.post("/{integration_id}/purchases/refresh", response_model=dict, status_code=status.HTTP_200_OK)
+async def refresh_books_purchases(
+    integration_id: uuid.UUID, start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None),
+    async_mode: bool = Query(False),
+    current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db),
+):
+    service = await _books_purchases_service(integration_id, current_user, session)
+    if async_mode:
+        current = await service.status()
+        if current["status"] == "in_progress":
+            return current
+        from app.workers.sync_worker import sync_books_purchases_task
+        task = sync_books_purchases_task.delay(str(integration_id), start_date, end_date)
+        return {"status": "queued", "task_id": task.id, "resource_type": "purchases"}
+    job = await service.synchronize(start_date, end_date)
     return {"status": job.status, "sync_id": str(job.id), "records_processed": job.records_processed, "records_inserted": job.records_inserted, "records_updated": job.records_updated, "records_failed": job.records_failed, "last_successful_sync": job.successful_at, "error": job.error_message}
 
 

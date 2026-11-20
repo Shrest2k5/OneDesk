@@ -14,6 +14,7 @@ import {
   Layers,
   WalletCards,
   ChevronRight,
+  FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
@@ -36,7 +37,7 @@ const crmNav: NavItem[] = [
   { name: 'Accounts', to: '/crm/accounts', icon: Building2 },
 ]
 
-const booksNav: NavItem[] = [{ name: 'Contacts', to: '/books/contacts', icon: WalletCards }, { name: 'Sales Invoices', to: '/books/invoices', icon: BadgeDollarSign }, { name: 'Financial Transactions', to: '/books/transactions', icon: WalletCards }]
+const booksNav: NavItem[] = [{ name: 'Contacts', to: '/books/contacts', icon: WalletCards }, { name: 'Sales Invoices', to: '/books/invoices', icon: BadgeDollarSign }, { name: 'Purchases', to: '/books/purchases', icon: FileText }, { name: 'Financial Transactions', to: '/books/transactions', icon: WalletCards }]
 
 const opsNav: NavItem[] = [
   { name: 'Sync Center', to: '/sync', icon: RefreshCw },

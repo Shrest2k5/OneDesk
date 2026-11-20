@@ -76,7 +76,7 @@ class BooksTransactionsService:
                 "paid_through_account": payload.get("paid_through_account_name"),
                 "from_account_id": payload.get("from_account_id"), "from_account": payload.get("from_account_name"),
                 "to_account_id": payload.get("to_account_id"), "to_account": payload.get("to_account_name"),
-                "associated_invoices": payload.get("invoices") or payload.get("bills"),
+                "associated_invoices": payload.get("invoices"), "associated_bills": payload.get("bills") or payload.get("invoices"),
                 "line_items": payload.get("line_items", []),
                 "created_time": payload.get("created_time"), "last_modified_time": payload.get("last_modified_time"),
                 "refund_source_id": refund_source_id,

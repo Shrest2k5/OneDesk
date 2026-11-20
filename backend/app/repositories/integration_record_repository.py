@@ -44,6 +44,7 @@ class IntegrationRecordRepository:
             raise ValueError("An external organization ID is required to persist a record")
         external_record_id = (
             payload.get("id") or payload.get("contact_id") or payload.get("invoice_id")
+            or payload.get("bill_id") or payload.get("vendor_credit_id")
             or payload.get("payment_id") or payload.get("payment_refund_id")
             or payload.get("creditnote_refund_id") or payload.get("vendorpayment_refund_id")
             or payload.get("transaction_id") or payload.get("sales_receipt_id")

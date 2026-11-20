@@ -80,6 +80,7 @@ class ZohoTokenManager:
         self,
         integration: Integration,
         session: AsyncSession,
+        force: bool = False,
     ) -> str:
         """
         Exchange refresh token for a fresh access token using Zoho OAuth token endpoint.
@@ -88,7 +89,7 @@ class ZohoTokenManager:
         lock = self._get_lock(str(integration.id))
 
         async with lock:
-            if not self.is_token_expired(integration, safety_buffer_seconds=60) and integration.access_token:
+            if not force and not self.is_token_expired(integration, safety_buffer_seconds=60) and integration.access_token:
                 logger.info(f"Token for integration {integration.id} is already valid.")
                 return integration.access_token
 

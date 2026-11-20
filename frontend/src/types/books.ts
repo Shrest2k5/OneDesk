@@ -58,3 +58,11 @@ export interface BooksTransaction {
 }
 export interface BooksTransactionsResponse { data: BooksTransaction[]; pagination: { page: number; per_page: number; count: number; total: number; more_records: boolean }; sync: { status: string; error?: string | null; last_successful_sync?: string | null } }
 export interface BooksTransactionStats { total: number; counts: Record<string, number>; amounts: Record<string, string> }
+export interface BooksPurchase {
+  id: string; number?: string | null; vendor_name?: string | null; date?: string | null; due_date?: string | null
+  status?: string | null; currency_code?: string | null; subtotal?: string | number | null; tax?: string | number | null
+  total?: string | number | null; balance?: string | number | null; reference_number?: string | null
+  amount?: string | number | null; line_items?: unknown[]; applied_bill_references?: unknown[]; payments?: unknown[]; transaction_date?: string | null
+  payment_number?: string | null; payment_mode?: string | null; associated_invoices?: unknown[]; associated_bills?: unknown[]
+}
+export interface BooksPurchasesResponse { data: BooksPurchase[]; pagination: { page: number; per_page: number; count: number; total: number; more_records: boolean }; sync: { status: string; error?: string | null; last_successful_sync?: string | null } }

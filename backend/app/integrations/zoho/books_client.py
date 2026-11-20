@@ -59,7 +59,9 @@ class ZohoBooksClient:
 
         if response.status_code == 401 and attempt == 1:
             try:
-                await self.token_manager.refresh_access_token(self.integration, self.session)
+                # A reactive 401 must force a refresh because a provider-revoked
+                # token may still appear valid to the local expiry clock.
+                await self.token_manager.refresh_access_token(self.integration, self.session, force=True)
             except ZohoTokenExpiredError:
                 raise
             except Exception as exc:
@@ -80,11 +82,18 @@ class ZohoBooksClient:
             raise ZohoAPIError("Zoho Books returned an invalid JSON response.", status_code=response.status_code) from exc
 
         if response.status_code >= 400:
-            details = sanitize_data(payload if isinstance(payload, dict) else {"raw": payload})
+            raw_details = payload if isinstance(payload, dict) else {"raw": payload}
+            # Zoho's numeric response code is diagnostic metadata, not an
+            # OAuth credential; retain it separately while sanitizing the
+            # response body for logs and exception details.
+            provider_code = raw_details.get("code") if isinstance(raw_details.get("code"), (int, float)) else None
+            details = sanitize_data(raw_details)
             message = details.get("message", f"HTTP {response.status_code}") if isinstance(details, dict) else "API error"
             logger.warning(
-                "Zoho Books API failure: method=%s endpoint=%s status=%s message=%s",
-                method, url, response.status_code, message,
+                "Zoho Books API failure: method=%s endpoint=%s status=%s provider_code=%s message=%s response=%s",
+                method, url, response.status_code,
+                provider_code,
+                message, details,
             )
             raise ZohoAPIError(
                 f"Zoho Books API error: {message}",
@@ -182,3 +191,11 @@ class ZohoBooksClient:
         if not isinstance(context, dict):
             raise ZohoAPIError(f"Zoho Books {endpoint} pagination has an invalid structure.")
         return {"items": items, "page_context": context}
+
+    async def list_bills_page(self, organization_id: str, page: int = 1, per_page: int = 200,
+                              start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
+        return await self.list_financial_page(organization_id, "bills", "bills", page, per_page, start_date, end_date)
+
+    async def list_vendor_credits_page(self, organization_id: str, page: int = 1, per_page: int = 200,
+                                       start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
+        return await self.list_financial_page(organization_id, "vendorcredits", "vendor_credits", page, per_page, start_date, end_date)

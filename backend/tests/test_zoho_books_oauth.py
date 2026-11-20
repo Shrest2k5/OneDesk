@@ -34,6 +34,12 @@ def test_books_authorization_url_is_product_aware_and_read_only():
     assert client.validate_state(result["state"])["product"] == "books"
 
 
+def test_default_books_scopes_include_vendor_credit_read_permission():
+    assert "ZohoBooks.bills.READ" in settings.ZOHO_BOOKS_SCOPES
+    assert "ZohoBooks.debitnotes.READ" in settings.ZOHO_BOOKS_SCOPES
+    assert "ZohoBooks.vendorpayments.READ" in settings.ZOHO_BOOKS_SCOPES
+
+
 def test_crm_state_is_rejected_by_books_client():
     user_id = uuid.uuid4()
     crm = ZohoOAuthClient(client_id="crm", client_secret="secret", product="crm")

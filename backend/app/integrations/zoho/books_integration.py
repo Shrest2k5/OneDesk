@@ -145,6 +145,12 @@ class ZohoBooksIntegration(BaseERPIntegration):
         elif resource_type == "invoices":
             response = await client.list_invoices_page(integration.selected_organization_id, page, per_page)
             items = response["invoices"]
+        elif resource_type == "bills":
+            response = await client.list_bills_page(integration.selected_organization_id, page, per_page)
+            items = response["items"]
+        elif resource_type == "vendor_credits":
+            response = await client.list_vendor_credits_page(integration.selected_organization_id, page, per_page)
+            items = response["items"]
         else:
             raise ValueError(f"Books synchronization does not support resource '{resource_type}'")
 

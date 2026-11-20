@@ -53,7 +53,7 @@ class Settings(BaseSettings):
         "ZohoBooks.settings.READ,ZohoBooks.contacts.READ,ZohoBooks.invoices.READ,"
         "ZohoBooks.bills.READ,ZohoBooks.expenses.READ,ZohoBooks.customerpayments.READ,"
         "ZohoBooks.vendorpayments.READ,ZohoBooks.estimates.READ,ZohoBooks.creditnotes.READ"
-        ",ZohoBooks.invoices.READ,ZohoBooks.banking.READ"
+        ",ZohoBooks.debitnotes.READ,ZohoBooks.invoices.READ,ZohoBooks.banking.READ"
     )
 
     # Public application URL used after a provider has completed an OAuth callback.

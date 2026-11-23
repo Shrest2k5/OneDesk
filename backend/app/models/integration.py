@@ -49,6 +49,11 @@ class Integration(Base, TimestampMixin):
         index=True,
         comment="External account or organization identifier from the provider",
     )
+    external_database: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Optional provider database selector, e.g. Odoo X-Odoo-Database",
+    )
     selected_organization_id: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True,

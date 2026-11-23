@@ -38,6 +38,7 @@ const crmNav: NavItem[] = [
 ]
 
 const booksNav: NavItem[] = [{ name: 'Contacts', to: '/books/contacts', icon: WalletCards }, { name: 'Sales Invoices', to: '/books/invoices', icon: BadgeDollarSign }, { name: 'Purchases', to: '/books/purchases', icon: FileText }, { name: 'Financial Transactions', to: '/books/transactions', icon: WalletCards }]
+const odooNav: NavItem[] = [{ name: 'Partners', to: '/odoo/contacts', icon: Users }]
 
 const opsNav: NavItem[] = [
   { name: 'Sync Center', to: '/sync', icon: RefreshCw },
@@ -91,6 +92,13 @@ export const Sidebar: React.FC = () => {
                 </div>
               </NavLink>
             ))}
+          </nav>
+        </div>
+
+        <div>
+          <div className="px-2.5 text-[11px] font-semibold tracking-wider text-slate-400 uppercase mb-2 flex items-center justify-between"><span>Odoo Workspace</span><span className="text-[9px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-mono font-medium">JSON-2</span></div>
+          <nav className="space-y-0.5">
+            {odooNav.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => cn('flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors', isActive ? 'bg-indigo-50/70 text-indigo-700 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50')}><item.icon className="w-4 h-4 text-slate-400" /><span>{item.name}</span></NavLink>)}
           </nav>
         </div>
 

@@ -50,6 +50,13 @@ export const IntegrationsPage: React.FC = () => {
   const [connectionName, setConnectionName] = useState('My Zoho CRM')
   const [selectedDc, setSelectedDc] = useState<ZohoDataCenter>('in')
   const [connectError, setConnectError] = useState<string | null>(null)
+  const [isOdooConnectModalOpen, setIsOdooConnectModalOpen] = useState(false)
+  const [odooConnectionName, setOdooConnectionName] = useState('My Odoo ERP')
+  const [odooInstanceUrl, setOdooInstanceUrl] = useState('')
+  const [odooApiKey, setOdooApiKey] = useState('')
+  const [odooDatabase, setOdooDatabase] = useState('')
+  const [odooReconnectId, setOdooReconnectId] = useState<string | undefined>(undefined)
+  const [odooConnectError, setOdooConnectError] = useState<string | null>(null)
 
   const [inspectIntegration, setInspectIntegration] = useState<Integration | null>(null)
   const [booksOrganizationsIntegration, setBooksOrganizationsIntegration] = useState<Integration | null>(null)
@@ -73,6 +80,16 @@ export const IntegrationsPage: React.FC = () => {
         : currentName
     ))
     setIsConnectModalOpen(true)
+  }
+
+  const openOdooConnectDialog = (integration?: Integration) => {
+    setOdooConnectError(null)
+    setOdooReconnectId(integration?.id)
+    setOdooConnectionName(integration?.connection_name || 'My Odoo ERP')
+    setOdooInstanceUrl(integration?.api_domain || '')
+    setOdooDatabase(integration?.external_database || '')
+    setOdooApiKey('')
+    setIsOdooConnectModalOpen(true)
   }
 
   // Connect mutation
@@ -108,6 +125,23 @@ export const IntegrationsPage: React.FC = () => {
     }),
     onSuccess: (data) => { window.location.href = data.authorization_url },
     onError: (err: any) => setConnectError(err.message || 'Failed to start Books reauthorization.'),
+  })
+
+  const odooConnectMutation = useMutation({
+    mutationFn: () => integrationsApi.connectOdoo({
+      connection_name: odooConnectionName.trim(),
+      instance_url: odooInstanceUrl.trim(),
+      api_key: odooApiKey,
+      database: odooDatabase.trim() || undefined,
+      integration_id: odooReconnectId,
+    }),
+    onSuccess: () => {
+      setIsOdooConnectModalOpen(false)
+      setOdooApiKey('')
+      queryClient.invalidateQueries({ queryKey: ['integrations'] })
+      refetchIntegrations()
+    },
+    onError: (err: any) => setOdooConnectError(err.message || 'Failed to validate the Odoo connection.'),
   })
 
   // Disconnect mutation
@@ -153,6 +187,14 @@ export const IntegrationsPage: React.FC = () => {
           leftIcon={<Plus className="w-4 h-4" />}
         >
           Connect Zoho
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => openOdooConnectDialog()}
+          leftIcon={<Server className="w-4 h-4" />}
+        >
+          Connect Odoo
         </Button>
       </div>
 
@@ -247,6 +289,15 @@ export const IntegrationsPage: React.FC = () => {
                               Reauthorize
                             </Button>
                           </>
+                        )}
+                        {item.provider === 'odoo' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openOdooConnectDialog(item)}
+                          >
+                            Reconnect
+                          </Button>
                         )}
                         <Button
                           variant="ghost"
@@ -398,13 +449,13 @@ export const IntegrationsPage: React.FC = () => {
               </div>
               <h4 className="text-sm font-semibold text-slate-900">Odoo ERP</h4>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Planned XML-RPC & JSON-RPC connectivity for Odoo Community and Enterprise editions, providing access to
-                partners, sales, and products.
+                Planned external Odoo 20 connectivity through the supported JSON-2 API and API-key authentication,
+                providing access to partners, sales, and products.
               </p>
               <div className="mt-4 pt-4 border-t border-slate-200/60 space-y-1.5 text-[11px] text-slate-500">
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                  <span>Odoo 16+ & 17+ support planned</span>
+                  <span>Externally hosted Odoo 20 instances</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
@@ -561,6 +612,49 @@ export const IntegrationsPage: React.FC = () => {
               >
                 Authorize with Zoho
               </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {isOdooConnectModalOpen && (
+        <Modal
+          isOpen={isOdooConnectModalOpen}
+          onClose={() => !odooConnectMutation.isPending && setIsOdooConnectModalOpen(false)}
+          title={odooReconnectId ? 'Reconnect Odoo ERP' : 'Connect Odoo ERP'}
+          description="Validate an externally hosted Odoo 20 instance through its read-only JSON-2 API before saving the connection."
+          maxWidth="md"
+        >
+          <div className="space-y-4 pt-2">
+            {odooConnectError && (
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{odooConnectError}</span>
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Connection Name</label>
+              <input value={odooConnectionName} onChange={(e) => setOdooConnectionName(e.target.value)} maxLength={100} className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Odoo Instance URL</label>
+              <input type="url" value={odooInstanceUrl} onChange={(e) => setOdooInstanceUrl(e.target.value)} placeholder="https://odoo.example.com" autoComplete="url" className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">JSON-2 API Key</label>
+              <input type="password" value={odooApiKey} onChange={(e) => setOdooApiKey(e.target.value)} placeholder={odooReconnectId ? 'Enter a replacement API key' : 'Paste the Odoo API key'} autoComplete="new-password" className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <p className="text-[11px] text-slate-500 mt-1">The key is validated and encrypted at rest. It is never shown after saving.</p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Database Name <span className="font-normal text-slate-400">(optional)</span></label>
+              <input value={odooDatabase} onChange={(e) => setOdooDatabase(e.target.value)} maxLength={100} placeholder="Only if the host serves multiple databases" className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
+              OneDesk sends a non-mutating <span className="font-mono">res.users/context_get</span> JSON-2 request to verify the instance, API key, and authenticated user permissions.
+            </div>
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <Button variant="outline" size="sm" onClick={() => setIsOdooConnectModalOpen(false)} disabled={odooConnectMutation.isPending}>Cancel</Button>
+              <Button variant="primary" size="sm" onClick={() => odooConnectMutation.mutate()} isLoading={odooConnectMutation.isPending} disabled={!odooConnectionName.trim() || !odooInstanceUrl.trim() || !odooApiKey}>Validate & Connect</Button>
             </div>
           </div>
         </Modal>

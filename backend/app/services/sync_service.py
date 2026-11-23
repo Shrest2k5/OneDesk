@@ -160,6 +160,7 @@ class SyncService:
         incremental: bool = True,
         sync_id: Optional[uuid.UUID] = None,
         fail_on_error: bool = True,
+        per_page: int = 200,
     ) -> SyncHistory:
         """
         Execute full or incremental synchronization of an ERP resource type
@@ -193,7 +194,7 @@ class SyncService:
         total_updated = 0
         total_failed = 0
         page = 1
-        per_page = 200
+        per_page = max(1, min(per_page, 500))
         sync_job_id = sync_job.id
 
         try:
@@ -218,13 +219,16 @@ class SyncService:
                             if integration.product == "books"
                             else integration.external_account_id
                         )
+                        if integration.provider == "odoo":
+                            external_organization_id = integration.external_database or integration.api_domain or "odoo-default"
+                        stored_resource_type = "contacts" if integration.provider == "odoo" else resource_type
                         outcome = await self.record_repo.upsert(
                             user_id=integration.user_id,
                             integration_id=integration.id,
                             provider=integration.provider,
                             product=integration.product,
                             external_organization_id=external_organization_id,
-                            resource_type=resource_type,
+                            resource_type=stored_resource_type,
                             payload=item,
                         )
                         if outcome == "inserted":

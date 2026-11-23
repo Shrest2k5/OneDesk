@@ -4,9 +4,12 @@ import type {
   Integration,
   ZohoConnectRequest,
   ZohoConnectResponse,
+  OdooConnectRequest,
+  OdooConnectResponse,
   BooksOrganization,
 } from '@/types/integration'
 import type { BooksContactStats, BooksContactsResponse, BooksInvoiceStats, BooksTransactionsResponse, BooksTransactionStats, BooksPurchasesResponse } from '@/types/books'
+import type { OdooContactStats, OdooContactsResponse } from '@/types/odoo'
 
 export const integrationsApi = {
   list: async (): Promise<Integration[]> => {
@@ -37,6 +40,26 @@ export const integrationsApi = {
 
   initiateZohoBooksConnect: async (data: ZohoConnectRequest): Promise<ZohoConnectResponse> => {
     const response = await apiClient.post<ZohoConnectResponse>('/integrations/zoho/books/connect', data)
+    return response.data
+  },
+
+  connectOdoo: async (data: OdooConnectRequest): Promise<OdooConnectResponse> => {
+    const response = await apiClient.post<OdooConnectResponse>('/integrations/odoo/connect', data)
+    return response.data
+  },
+
+  listOdooContacts: async (integrationId: string, params: { page: number; per_page: number; kind?: string; search?: string; include_archived?: boolean }): Promise<OdooContactsResponse> => {
+    const response = await apiClient.get<OdooContactsResponse>(`/integrations/odoo/${integrationId}/contacts`, { params })
+    return response.data
+  },
+
+  odooContactStats: async (integrationId: string): Promise<OdooContactStats> => {
+    const response = await apiClient.get<OdooContactStats>(`/integrations/odoo/${integrationId}/contacts/stats`)
+    return response.data
+  },
+
+  refreshOdooContacts: async (integrationId: string, per_page = 200): Promise<Record<string, unknown>> => {
+    const response = await apiClient.post<Record<string, unknown>>(`/integrations/odoo/${integrationId}/contacts/refresh`, undefined, { params: { async_mode: true, per_page } })
     return response.data
   },
 

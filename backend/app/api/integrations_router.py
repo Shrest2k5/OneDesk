@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 import uuid
 from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user, get_db
@@ -18,6 +18,7 @@ class IntegrationResponse(BaseModel):
     product: str
     connection_name: str
     external_account_id: Optional[str] = None
+    external_database: Optional[str] = None
     status: str
     api_domain: Optional[str] = None
     token_expires_at: Optional[datetime] = None
@@ -85,6 +86,7 @@ class SyncRequest(BaseModel):
     resource_type: str = "contacts"
     incremental: bool = True
     async_mode: bool = False
+    per_page: int = Field(default=200, ge=1, le=500)
 
 
 class SyncHistoryResponse(BaseModel):
@@ -133,6 +135,7 @@ async def trigger_sync(
             resource_type=request.resource_type,
             incremental=request.incremental,
             sync_id=str(sync_job.id),
+            per_page=request.per_page,
         )
         return sync_job
 
@@ -141,6 +144,7 @@ async def trigger_sync(
         integration=integration,
         resource_type=request.resource_type,
         incremental=request.incremental,
+        per_page=request.per_page,
     )
     return sync_job
 

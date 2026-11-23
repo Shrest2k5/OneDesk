@@ -14,6 +14,7 @@ from app.integrations.zoho.exceptions import (
     ZohoRateLimitError,
     ZohoTokenExpiredError,
 )
+from app.integrations.odoo.exceptions import OdooIntegrationError
 
 
 @asynccontextmanager
@@ -105,6 +106,18 @@ def create_application() -> FastAPI:
             status_code=exc.status_code or status.HTTP_502_BAD_GATEWAY,
             content={
                 "error": "external_api_error",
+                "message": str(exc),
+                "details": sanitize_data(exc.details),
+            },
+        )
+
+    @application.exception_handler(OdooIntegrationError)
+    async def odoo_integration_error_handler(request: Request, exc: OdooIntegrationError):
+        logger.warning("Odoo integration error: %s", exc)
+        return JSONResponse(
+            status_code=exc.status_code or status.HTTP_502_BAD_GATEWAY,
+            content={
+                "error": "odoo_integration_error",
                 "message": str(exc),
                 "details": sanitize_data(exc.details),
             },

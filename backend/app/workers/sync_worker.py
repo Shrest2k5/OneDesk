@@ -19,6 +19,7 @@ RESOURCE_TYPES_BY_PRODUCT = {
     # Books financial transactions use the dedicated Books transactions service;
     # the shared task supports the paginated resources implemented by the ERP adapter.
     "books": ("contacts", "invoices"),
+    "erp": ("contacts", "customers", "vendors"),
 }
 
 
@@ -45,6 +46,7 @@ async def _run_async_sync(
     incremental: bool = True,
     sync_id_str: Optional[str] = None,
     fail_on_error: bool = True,
+    per_page: int = 200,
 ) -> Dict[str, Any]:
     """Helper running asynchronous database session and sync logic inside Celery process."""
     integration_id = uuid.UUID(integration_id_str)
@@ -70,6 +72,7 @@ async def _run_async_sync(
                 incremental=incremental,
                 sync_id=uuid.UUID(sync_id_str) if sync_id_str else None,
                 fail_on_error=fail_on_error,
+                per_page=per_page,
             )
 
             return {
@@ -92,6 +95,7 @@ def sync_resource_task(
     resource_type: str,
     incremental: bool = True,
     sync_id: Optional[str] = None,
+    per_page: int = 200,
 ) -> Dict[str, Any]:
     """
     Celery task to synchronize a single resource type with retry on transient network errors.
@@ -107,6 +111,7 @@ def sync_resource_task(
                 incremental,
                 sync_id,
                 fail_on_error=self.request.retries >= self.max_retries,
+                per_page=per_page,
             )
         )
     except Exception as exc:
@@ -127,6 +132,7 @@ def sync_resource_task(
                     "resource_type": resource_type,
                     "incremental": incremental,
                     "sync_id": sync_id,
+                    "per_page": per_page,
                 },
             )
         if sync_id:

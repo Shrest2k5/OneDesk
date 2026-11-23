@@ -6,6 +6,7 @@ export interface Integration {
   product: 'crm' | 'books' | string
   connection_name: string
   external_account_id?: string | null
+  external_database?: string | null
   status: IntegrationStatus
   api_domain?: string | null
   token_expires_at?: string | null
@@ -25,6 +26,24 @@ export interface ZohoConnectResponse {
   authorization_url: string
   state: string
   data_center: string
+}
+
+export interface OdooConnectRequest {
+  connection_name: string
+  instance_url: string
+  api_key: string
+  database?: string
+  integration_id?: string
+}
+
+export interface OdooConnectResponse {
+  id: string
+  provider: 'odoo'
+  product: string
+  connection_name: string
+  api_domain?: string | null
+  external_database?: string | null
+  status: IntegrationStatus
 }
 
 export interface ConnectionHealthStatus {

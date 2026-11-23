@@ -17,6 +17,7 @@ import { BooksContactsPage } from '@/pages/books/BooksContactsPage'
 import { BooksInvoicesPage } from '@/pages/books/BooksInvoicesPage'
 import { BooksTransactionsPage } from '@/pages/books/BooksTransactionsPage'
 import { BooksPurchasesPage } from '@/pages/books/BooksPurchasesPage'
+import { OdooContactsPage } from '@/pages/odoo/OdooContactsPage'
 import { LeadsPage } from '@/pages/crm/LeadsPage'
 import { DealsPage } from '@/pages/crm/DealsPage'
 import { AccountsPage } from '@/pages/crm/AccountsPage'
@@ -62,6 +63,7 @@ export const App: React.FC = () => {
                 <Route path="/books/invoices" element={<BooksInvoicesPage />} />
                 <Route path="/books/transactions" element={<BooksTransactionsPage />} />
                 <Route path="/books/purchases" element={<BooksPurchasesPage />} />
+                <Route path="/odoo/contacts" element={<OdooContactsPage />} />
                 <Route path="/sync" element={<SyncCenterPage />} />
                 <Route path="/activity" element={<ActivityPage />} />
                 <Route path="/settings" element={<SettingsPage />} />

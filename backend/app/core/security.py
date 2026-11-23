@@ -82,6 +82,7 @@ _PLACEHOLDER_KEYS = {
 SENSITIVE_KEY_PATTERNS = {
     "access_token",
     "refresh_token",
+    "api_key",
     "client_secret",
     "code",
     "authorization",

@@ -4,6 +4,7 @@ from app.auth.router import router as auth_router
 from app.integrations.zoho.crm_router import router as zoho_crm_router
 from app.integrations.zoho.router import router as zoho_oauth_router
 from app.integrations.zoho.books_router import router as zoho_books_router
+from app.integrations.odoo.router import router as odoo_router
 
 api_router = APIRouter()
 
@@ -13,6 +14,7 @@ api_router.include_router(auth_router)
 # Integration connection lifecycle & OAuth: /api/v1/integrations/zoho
 api_router.include_router(zoho_oauth_router)
 api_router.include_router(zoho_books_router)
+api_router.include_router(odoo_router)
 
 # Generic integration management: /api/v1/integrations
 api_router.include_router(integrations_router)

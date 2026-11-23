@@ -89,6 +89,7 @@ class IntegrationRepository:
         token_expires_at: Optional[datetime] = None,
         api_domain: Optional[str] = None,
         external_account_id: Optional[str] = None,
+        external_database: Optional[str] = None,
         status: str = "active",
     ) -> Integration:
         """
@@ -117,6 +118,7 @@ class IntegrationRepository:
             existing.token_expires_at = token_expires_at
             if api_domain:
                 existing.api_domain = api_domain
+            existing.external_database = external_database
             existing.status = status
             existing.updated_at = datetime.now(timezone.utc)
             await self.session.flush()
@@ -129,6 +131,7 @@ class IntegrationRepository:
             product=product,
             connection_name=connection_name,
             external_account_id=external_account_id,
+            external_database=external_database,
             access_token=access_token,
             refresh_token=refresh_token,
             token_expires_at=token_expires_at,

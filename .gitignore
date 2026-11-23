@@ -56,4 +56,3 @@ htmlcov/
 # Docker
 postgres_data/
 redis_data/
-

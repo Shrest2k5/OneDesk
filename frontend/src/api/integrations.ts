@@ -9,7 +9,21 @@ import type {
   BooksOrganization,
 } from '@/types/integration'
 import type { BooksContactStats, BooksContactsResponse, BooksInvoiceStats, BooksTransactionsResponse, BooksTransactionStats, BooksPurchasesResponse } from '@/types/books'
-import type { OdooContactStats, OdooContactsResponse } from '@/types/odoo'
+import type {
+  OdooContactStats,
+  OdooContactsResponse,
+  OdooInvoice,
+  OdooBill,
+  OdooCreditNote,
+  OdooPayment,
+  OdooTransaction,
+  OdooInvoiceStats,
+  OdooBillStats,
+  OdooCreditNoteStats,
+  OdooPaymentStats,
+  OdooTransactionStats,
+  OdooFinancialResponse,
+} from '@/types/odoo'
 
 export const integrationsApi = {
   list: async (): Promise<Integration[]> => {
@@ -60,6 +74,82 @@ export const integrationsApi = {
 
   refreshOdooContacts: async (integrationId: string, per_page = 200): Promise<Record<string, unknown>> => {
     const response = await apiClient.post<Record<string, unknown>>(`/integrations/odoo/${integrationId}/contacts/refresh`, undefined, { params: { async_mode: true, per_page } })
+    return response.data
+  },
+
+  // Odoo Financial Resources
+  listOdooInvoices: async (integrationId: string, params: Record<string, string | number | boolean | undefined>): Promise<OdooFinancialResponse<OdooInvoice>> => {
+    const response = await apiClient.get<OdooFinancialResponse<OdooInvoice>>(`/integrations/odoo/${integrationId}/invoices`, { params })
+    return response.data
+  },
+
+  odooInvoiceStats: async (integrationId: string): Promise<OdooInvoiceStats> => {
+    const response = await apiClient.get<OdooInvoiceStats>(`/integrations/odoo/${integrationId}/invoices/stats`)
+    return response.data
+  },
+
+  refreshOdooInvoices: async (integrationId: string, per_page = 200): Promise<Record<string, unknown>> => {
+    const response = await apiClient.post<Record<string, unknown>>(`/integrations/odoo/${integrationId}/invoices/refresh`, undefined, { params: { async_mode: true, per_page } })
+    return response.data
+  },
+
+  listOdooBills: async (integrationId: string, params: Record<string, string | number | boolean | undefined>): Promise<OdooFinancialResponse<OdooBill>> => {
+    const response = await apiClient.get<OdooFinancialResponse<OdooBill>>(`/integrations/odoo/${integrationId}/bills`, { params })
+    return response.data
+  },
+
+  odooBillStats: async (integrationId: string): Promise<OdooBillStats> => {
+    const response = await apiClient.get<OdooBillStats>(`/integrations/odoo/${integrationId}/bills/stats`)
+    return response.data
+  },
+
+  refreshOdooBills: async (integrationId: string, per_page = 200): Promise<Record<string, unknown>> => {
+    const response = await apiClient.post<Record<string, unknown>>(`/integrations/odoo/${integrationId}/bills/refresh`, undefined, { params: { async_mode: true, per_page } })
+    return response.data
+  },
+
+  listOdooCreditNotes: async (integrationId: string, params: Record<string, string | number | boolean | undefined>): Promise<OdooFinancialResponse<OdooCreditNote>> => {
+    const response = await apiClient.get<OdooFinancialResponse<OdooCreditNote>>(`/integrations/odoo/${integrationId}/credit-notes`, { params })
+    return response.data
+  },
+
+  odooCreditNoteStats: async (integrationId: string): Promise<OdooCreditNoteStats> => {
+    const response = await apiClient.get<OdooCreditNoteStats>(`/integrations/odoo/${integrationId}/credit-notes/stats`)
+    return response.data
+  },
+
+  refreshOdooCreditNotes: async (integrationId: string, per_page = 200): Promise<Record<string, unknown>> => {
+    const response = await apiClient.post<Record<string, unknown>>(`/integrations/odoo/${integrationId}/credit-notes/refresh`, undefined, { params: { async_mode: true, per_page } })
+    return response.data
+  },
+
+  listOdooPayments: async (integrationId: string, params: Record<string, string | number | boolean | undefined>): Promise<OdooFinancialResponse<OdooPayment>> => {
+    const response = await apiClient.get<OdooFinancialResponse<OdooPayment>>(`/integrations/odoo/${integrationId}/payments`, { params })
+    return response.data
+  },
+
+  odooPaymentStats: async (integrationId: string): Promise<OdooPaymentStats> => {
+    const response = await apiClient.get<OdooPaymentStats>(`/integrations/odoo/${integrationId}/payments/stats`)
+    return response.data
+  },
+
+  refreshOdooPayments: async (integrationId: string, per_page = 200): Promise<Record<string, unknown>> => {
+    const response = await apiClient.post<Record<string, unknown>>(`/integrations/odoo/${integrationId}/payments/refresh`, undefined, { params: { async_mode: true, per_page } })
+    return response.data
+  },
+
+  listOdooTransactions: async (integrationId: string, params: Record<string, string | number | boolean | undefined>): Promise<OdooFinancialResponse<OdooTransaction>> => {
+    const response = await apiClient.get<OdooFinancialResponse<OdooTransaction>>(`/integrations/odoo/${integrationId}/transactions`, { params })
+    return response.data
+  },
+
+  odooTransactionStats: async (integrationId: string): Promise<OdooTransactionStats> => {
+    const response = await apiClient.get<OdooTransactionStats>(`/integrations/odoo/${integrationId}/transactions/stats`)
+    return response.data
+  },
+
+  refreshOdooTransactions: async (integrationId: string, per_page = 200): Promise<Record<string, unknown>> => {
+    const response = await apiClient.post<Record<string, unknown>>(`/integrations/odoo/${integrationId}/transactions/refresh`, undefined, { params: { async_mode: true, per_page } })
     return response.data
   },
 

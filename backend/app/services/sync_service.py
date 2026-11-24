@@ -221,7 +221,7 @@ class SyncService:
                         )
                         if integration.provider == "odoo":
                             external_organization_id = integration.external_database or integration.api_domain or "odoo-default"
-                        stored_resource_type = "contacts" if integration.provider == "odoo" else resource_type
+                        stored_resource_type = "contacts" if (integration.provider == "odoo" and resource_type in {"contacts", "customers", "vendors"}) else resource_type
                         outcome = await self.record_repo.upsert(
                             user_id=integration.user_id,
                             integration_id=integration.id,

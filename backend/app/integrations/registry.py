@@ -1,4 +1,5 @@
 from typing import Dict, List, Optional, Tuple
+from importlib import import_module
 from app.integrations.base import BaseERPIntegration
 
 
@@ -18,16 +19,29 @@ class IntegrationRegistry:
         self._providers[(name, product)] = provider
 
     def get(self, provider_name: str, product: str = "crm") -> Optional[BaseERPIntegration]:
-        """Resolve a provider integration by name."""
-        name = provider_name.lower().strip()
-        provider = self._providers.get((name, product.lower().strip()))
-        if provider is None and name == "zoho" and product == "crm":
-            # Workers can import this registry without importing the API router.
-            # Load built-ins lazily so registration does not depend on import order.
-            from app.integrations.zoho.integration import zoho_integration
+        """Resolve a provider integration by name and product.
 
-            self.register(zoho_integration)
-            provider = self._providers.get((name, "crm"))
+        Provider modules register their singleton as an import side effect.  The
+        API imports those modules through its routers, but Celery starts from a
+        task module and therefore does not necessarily import any API router.
+        Load the built-in provider on demand so resolution is independent of
+        process entrypoint and import order.
+        """
+        name = provider_name.lower().strip()
+        product_name = product.lower().strip()
+        provider = self._providers.get((name, product_name))
+        if provider is None:
+            builtins = {
+                ("zoho", "crm"): ("app.integrations.zoho.integration", "zoho_integration"),
+                ("zoho", "books"): ("app.integrations.zoho.books_integration", "zoho_books_integration"),
+                ("odoo", "erp"): ("app.integrations.odoo.integration", "odoo_integration"),
+            }
+            provider_spec = builtins.get((name, product_name))
+            if provider_spec:
+                module_name, provider_name = provider_spec
+                provider = getattr(import_module(module_name), provider_name)
+                self.register(provider)
+                provider = self._providers.get((name, product_name))
         return provider
 
     def list_providers(self) -> List[str]:

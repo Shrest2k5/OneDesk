@@ -18,6 +18,11 @@ import { BooksInvoicesPage } from '@/pages/books/BooksInvoicesPage'
 import { BooksTransactionsPage } from '@/pages/books/BooksTransactionsPage'
 import { BooksPurchasesPage } from '@/pages/books/BooksPurchasesPage'
 import { OdooContactsPage } from '@/pages/odoo/OdooContactsPage'
+import { OdooInvoicesPage } from '@/pages/odoo/OdooInvoicesPage'
+import { OdooBillsPage } from '@/pages/odoo/OdooBillsPage'
+import { OdooCreditNotesPage } from '@/pages/odoo/OdooCreditNotesPage'
+import { OdooPaymentsPage } from '@/pages/odoo/OdooPaymentsPage'
+import { OdooTransactionsPage } from '@/pages/odoo/OdooTransactionsPage'
 import { LeadsPage } from '@/pages/crm/LeadsPage'
 import { DealsPage } from '@/pages/crm/DealsPage'
 import { AccountsPage } from '@/pages/crm/AccountsPage'
@@ -64,6 +69,11 @@ export const App: React.FC = () => {
                 <Route path="/books/transactions" element={<BooksTransactionsPage />} />
                 <Route path="/books/purchases" element={<BooksPurchasesPage />} />
                 <Route path="/odoo/contacts" element={<OdooContactsPage />} />
+                <Route path="/odoo/invoices" element={<OdooInvoicesPage />} />
+                <Route path="/odoo/bills" element={<OdooBillsPage />} />
+                <Route path="/odoo/credit-notes" element={<OdooCreditNotesPage />} />
+                <Route path="/odoo/payments" element={<OdooPaymentsPage />} />
+                <Route path="/odoo/transactions" element={<OdooTransactionsPage />} />
                 <Route path="/sync" element={<SyncCenterPage />} />
                 <Route path="/activity" element={<ActivityPage />} />
                 <Route path="/settings" element={<SettingsPage />} />

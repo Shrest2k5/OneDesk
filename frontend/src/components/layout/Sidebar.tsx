@@ -15,6 +15,8 @@ import {
   WalletCards,
   ChevronRight,
   FileText,
+  Receipt,
+  ArrowLeftRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
@@ -38,7 +40,14 @@ const crmNav: NavItem[] = [
 ]
 
 const booksNav: NavItem[] = [{ name: 'Contacts', to: '/books/contacts', icon: WalletCards }, { name: 'Sales Invoices', to: '/books/invoices', icon: BadgeDollarSign }, { name: 'Purchases', to: '/books/purchases', icon: FileText }, { name: 'Financial Transactions', to: '/books/transactions', icon: WalletCards }]
-const odooNav: NavItem[] = [{ name: 'Partners', to: '/odoo/contacts', icon: Users }]
+const odooNav: NavItem[] = [
+  { name: 'Partners', to: '/odoo/contacts', icon: Users },
+  { name: 'Customer Invoices', to: '/odoo/invoices', icon: BadgeDollarSign },
+  { name: 'Vendor Bills', to: '/odoo/bills', icon: FileText },
+  { name: 'Credit Notes', to: '/odoo/credit-notes', icon: Receipt },
+  { name: 'Payments', to: '/odoo/payments', icon: WalletCards },
+  { name: 'Transactions', to: '/odoo/transactions', icon: ArrowLeftRight },
+]
 
 const opsNav: NavItem[] = [
   { name: 'Sync Center', to: '/sync', icon: RefreshCw },

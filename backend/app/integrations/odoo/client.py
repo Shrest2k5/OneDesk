@@ -69,6 +69,36 @@ class OdooClient:
             raise OdooConnectionError("Odoo JSON-2 returned an invalid user context.", status_code=502)
         return result
 
+    async def search_read(
+        self,
+        model: str,
+        domain: Optional[list] = None,
+        offset: int = 0,
+        limit: int = 200,
+        fields: Optional[List[str]] = None,
+        order: str = "id",
+        context: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Read one paginated, read-only page of records from any model via External JSON-2."""
+        ctx = {"active_test": False}
+        if context:
+            ctx.update(context)
+        result = await self._post(
+            model,
+            "search_read",
+            {
+                "domain": domain or [],
+                "fields": fields or [],
+                "offset": max(0, offset),
+                "limit": max(1, min(limit, 500)),
+                "order": order,
+                "context": ctx,
+            },
+        )
+        if not isinstance(result, list) or not all(isinstance(item, dict) for item in result):
+            raise OdooConnectionError(f"Odoo {model}/search_read returned an invalid response.", status_code=502)
+        return result
+
     async def search_read_partners(
         self,
         domain: Optional[list] = None,
@@ -78,21 +108,14 @@ class OdooClient:
         order: str = "id",
     ) -> List[Dict[str, Any]]:
         """Read one paginated, read-only page of res.partner records."""
-        result = await self._post(
+        return await self.search_read(
             "res.partner",
-            "search_read",
-            {
-                "domain": domain or [],
-                "fields": fields or [],
-                "offset": max(0, offset),
-                "limit": max(1, min(limit, 500)),
-                "order": order,
-                "context": {"active_test": False},
-            },
+            domain=domain,
+            offset=offset,
+            limit=limit,
+            fields=fields,
+            order=order,
         )
-        if not isinstance(result, list) or not all(isinstance(item, dict) for item in result):
-            raise OdooConnectionError("Odoo res.partner/search_read returned an invalid response.", status_code=502)
-        return result
 
     async def _post(self, model: str, method: str, payload: Dict[str, Any]) -> Any:
         url = f"{self.base_url}/json/2/{model}/{method}"

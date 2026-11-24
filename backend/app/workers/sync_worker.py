@@ -19,7 +19,7 @@ RESOURCE_TYPES_BY_PRODUCT = {
     # Books financial transactions use the dedicated Books transactions service;
     # the shared task supports the paginated resources implemented by the ERP adapter.
     "books": ("contacts", "invoices"),
-    "erp": ("contacts", "customers", "vendors"),
+    "erp": ("contacts", "customers", "vendors", "invoices", "bills", "credit_notes", "payments", "transactions"),
 }
 
 

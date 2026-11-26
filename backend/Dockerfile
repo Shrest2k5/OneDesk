@@ -21,9 +21,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy backend application source
 COPY . .
 
-# Expose FastAPI service port
-EXPOSE 8000
+# Render supplies PORT at runtime.  The fallback keeps local `docker run` usable.
+EXPOSE 10000
 
 # Default command runs Uvicorn ASGI server
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
 

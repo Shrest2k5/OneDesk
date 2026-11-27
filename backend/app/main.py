@@ -15,6 +15,7 @@ from app.integrations.zoho.exceptions import (
     ZohoTokenExpiredError,
 )
 from app.integrations.odoo.exceptions import OdooIntegrationError
+from app.integrations.business_central.exceptions import BusinessCentralOAuthError, BusinessCentralTokenExpiredError
 
 
 @asynccontextmanager
@@ -118,6 +119,26 @@ def create_application() -> FastAPI:
             status_code=exc.status_code or status.HTTP_502_BAD_GATEWAY,
             content={
                 "error": "odoo_integration_error",
+                "message": str(exc),
+                "details": sanitize_data(exc.details),
+            },
+        )
+
+    @application.exception_handler(BusinessCentralTokenExpiredError)
+    async def business_central_token_expired_handler(request: Request, exc: BusinessCentralTokenExpiredError):
+        logger.warning("Business Central token expired or revoked")
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"error": "token_expired_or_revoked", "message": str(exc)},
+        )
+
+    @application.exception_handler(BusinessCentralOAuthError)
+    async def business_central_oauth_handler(request: Request, exc: BusinessCentralOAuthError):
+        logger.warning("Business Central OAuth error: %s", exc)
+        return JSONResponse(
+            status_code=exc.status_code or status.HTTP_400_BAD_REQUEST,
+            content={
+                "error": "business_central_oauth_error",
                 "message": str(exc),
                 "details": sanitize_data(exc.details),
             },

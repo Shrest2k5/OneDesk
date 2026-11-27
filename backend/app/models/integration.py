@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 import uuid
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, EncryptedString, TimestampMixin
@@ -60,6 +60,20 @@ class Integration(Base, TimestampMixin):
         index=True,
         comment="Selected external organization ID for multi-organization products such as Zoho Books",
     )
+    # Business Central tenant/environment/company metadata. These remain
+    # nullable so existing Zoho and Odoo rows are unchanged.
+    business_central_tenant_id: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True, index=True,
+    )
+    business_central_environment_name: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True,
+    )
+    business_central_company_id: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True,
+    )
+    business_central_company_name: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True,
+    )
     connection_name: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
@@ -108,6 +122,13 @@ class Integration(Base, TimestampMixin):
 
     __table_args__ = (
         UniqueConstraint("user_id", "provider", "product", "external_account_id", name="uq_user_provider_product_account"),
+        Index(
+            "uq_business_central_user_tenant_environment_company",
+            "user_id", "business_central_tenant_id", "business_central_environment_name",
+            "business_central_company_id",
+            unique=True,
+            postgresql_where=text("provider = 'business_central'"),
+        ),
     )
 
     def __repr__(self) -> str:

@@ -166,6 +166,11 @@ class SyncService:
         Execute full or incremental synchronization of an ERP resource type
         (contacts, leads, deals, accounts) across all available pages.
         """
+        if integration.provider == "business_central" and integration.status != "active":
+            raise ValueError(
+                f"Business Central integration is in status '{integration.status}'; select a company before syncing."
+            )
+
         provider = integration_registry.get(integration.provider, integration.product)
         if not provider:
             raise ValueError(f"Unsupported ERP provider '{integration.provider}'")

@@ -28,6 +28,13 @@ def test_worker_registry_preserves_zoho_provider_resolution(provider_name, produ
     assert provider.product_name == product
 
 
+def test_worker_registry_resolves_business_central():
+    provider = IntegrationRegistry().get("business_central", "erp")
+    assert provider is not None
+    assert provider.provider_name == "business_central"
+    assert provider.product_name == "erp"
+
+
 def test_unknown_provider_remains_unsupported():
     assert IntegrationRegistry().get("not-a-provider", "erp") is None
 

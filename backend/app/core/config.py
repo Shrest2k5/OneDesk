@@ -67,6 +67,21 @@ class Settings(BaseSettings):
         ",ZohoBooks.debitnotes.READ,ZohoBooks.invoices.READ,ZohoBooks.banking.READ"
     )
 
+    # Microsoft Dynamics 365 Business Central OAuth 2.0 credentials.
+    # The tenant value may be a directory tenant ID/domain, or a supported
+    # Microsoft authority alias such as "organizations".
+    BUSINESS_CENTRAL_TENANT_ID: str = "organizations"
+    BUSINESS_CENTRAL_AUTHORITY_URL: str = "https://login.microsoftonline.com"
+    BUSINESS_CENTRAL_CLIENT_ID: str | None = None
+    BUSINESS_CENTRAL_CLIENT_SECRET: str | None = None
+    BUSINESS_CENTRAL_REDIRECT_URI: str | None = None
+    BUSINESS_CENTRAL_SCOPES: str = (
+        "openid profile email offline_access "
+        "https://api.businesscentral.dynamics.com/Financials.ReadWrite.All"
+    )
+    BUSINESS_CENTRAL_API_BASE_URL: str = "https://api.businesscentral.dynamics.com"
+    BUSINESS_CENTRAL_ADMIN_API_VERSION: str = "v2.29"
+
     # Public application URL used after a provider has completed an OAuth callback.
     # This is deliberately separate from ZOHO_REDIRECT_URI: Zoho must always send
     # authorization codes to the backend callback, where they can be validated and

@@ -35,6 +35,7 @@ class IntegrationRegistry:
                 ("zoho", "crm"): ("app.integrations.zoho.integration", "zoho_integration"),
                 ("zoho", "books"): ("app.integrations.zoho.books_integration", "zoho_books_integration"),
                 ("odoo", "erp"): ("app.integrations.odoo.integration", "odoo_integration"),
+                ("business_central", "erp"): ("app.integrations.business_central.integration", "business_central_integration"),
             }
             provider_spec = builtins.get((name, product_name))
             if provider_spec:

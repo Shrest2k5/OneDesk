@@ -78,6 +78,25 @@ class IntegrationRepository:
         result = await self.session.execute(query)
         return result.scalars().first()
 
+    async def get_business_central_connection(
+        self,
+        user_id: uuid.UUID,
+        tenant_id: str,
+        environment_name: str,
+        company_id: str,
+    ) -> Optional[Integration]:
+        """Find a selected Business Central company connection for one user."""
+        query = select(Integration).where(
+            Integration.user_id == user_id,
+            Integration.provider == "business_central",
+            Integration.product == "erp",
+            Integration.business_central_tenant_id == tenant_id,
+            Integration.business_central_environment_name == environment_name,
+            Integration.business_central_company_id == company_id,
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
     async def create_or_update(
         self,
         user_id: uuid.UUID,

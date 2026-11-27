@@ -23,6 +23,10 @@ class IntegrationResponse(BaseModel):
     api_domain: Optional[str] = None
     token_expires_at: Optional[datetime] = None
     selected_organization_id: Optional[str] = None
+    business_central_tenant_id: Optional[str] = None
+    business_central_environment_name: Optional[str] = None
+    business_central_company_id: Optional[str] = None
+    business_central_company_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
